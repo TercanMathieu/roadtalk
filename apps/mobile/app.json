@@ -1,0 +1,45 @@
+{
+  "expo": {
+    "name": "RoadTalk",
+    "slug": "roadtalk",
+    "scheme": "roadtalk",
+    "version": "0.0.1",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": true,
+    "platforms": [
+      "ios",
+      "android"
+    ],
+    "ios": {
+      "bundleIdentifier": "app.roadtalk.mobile",
+      "supportsTablet": false,
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "package": "app.roadtalk.mobile"
+    },
+    "plugins": [
+      "expo-router",
+      "@maplibre/maplibre-react-native",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "RoadTalk utilise ta position pour te situer sur la carte."
+        }
+      ],
+      "expo-secure-store",
+      "@react-native-google-signin/google-signin"
+    ],
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "2df0c3fc-7f22-4f47-af01-ad8de25a962f"
+      }
+    }
+  }
+}

@@ -1,0 +1,51 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id           String   @id @default(uuid()) @db.Uuid
+  email        String   @unique
+  firstName    String   @map("first_name")
+  lastName     String   @map("last_name")
+  // Nullable : absent tant que l'utilisateur ne l'a pas choisi après sa
+  // première connexion (mobile redirige vers l'écran de choix tant que null).
+  // Unique autorise plusieurs NULL en Postgres (pas de conflit tant qu'il
+  // n'est pas encore renseigné).
+  username     String?  @unique
+  // Identifiants OAuth : au moins un des deux est renseigné (F1 — Apple ou
+  // Google, jamais de mot de passe). C'est le service qui garantit qu'un
+  // User n'est créé que via findOrCreateFromOAuth, pas une contrainte ici.
+  appleUserId  String?  @unique @map("apple_user_id")
+  googleUserId String?  @unique @map("google_user_id")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  refreshTokens RefreshToken[]
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id     String @id @default(uuid()) @db.Uuid
+  userId String @map("user_id") @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Jamais le token brut en base — seulement son hash (SHA-256). Un accès en
+  // lecture à la base (fuite de backup, etc.) ne doit pas suffire à usurper
+  // une session, exactement comme pour un mot de passe.
+  tokenHash String @unique @map("token_hash")
+
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz(3)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  // Non-null : le token a été utilisé pour un refresh (rotation) ou révoqué
+  // explicitement (logout, détection de réemploi). Un token révoqué qu'on
+  // tente de réutiliser déclenche la révocation de toutes les sessions du user.
+  revokedAt DateTime? @map("revoked_at") @db.Timestamptz(3)
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}

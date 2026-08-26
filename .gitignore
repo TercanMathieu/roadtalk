@@ -1,0 +1,19 @@
+node_modules/
+dist/
+.turbo/
+.expo/
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+coverage/
+apps/mobile/ios/
+apps/mobile/android/
+
+# Clés de signature — EAS gère les credentials à distance ("remote"), une
+# copie locale ne doit jamais entrer dans l'historique git.
+*.jks
+*.keystore
+*.p12
+*.mobileprovision
