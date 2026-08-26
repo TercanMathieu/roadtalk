@@ -17,3 +17,6 @@ apps/mobile/android/
 *.keystore
 *.p12
 *.mobileprovision
+
+# Notes de décision internes — gardées en local, jamais publiées.
+docs/adr/
