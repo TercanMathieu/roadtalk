@@ -9,8 +9,6 @@ import { useAuthStore } from './auth.store';
 // certificat de signature — jamais référencé directement dans le code.
 const GOOGLE_WEB_CLIENT_ID = String(process.env['EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID'] ?? '');
 
-console.log('GOOGLE_WEB_CLIENT_ID chargé :', JSON.stringify(GOOGLE_WEB_CLIENT_ID));
-
 GoogleSignin.configure({
   webClientId: GOOGLE_WEB_CLIENT_ID,
   scopes: ['email', 'profile'],
@@ -40,7 +38,6 @@ export function useGoogleSignIn(): GoogleSignIn {
       setError('Réponse Google incomplète.');
       return;
     }
-    console.log(response.data.idToken)
     await signInWithGoogle(response.data.idToken);
   };
 

@@ -22,8 +22,6 @@ export class GoogleTokenVerifier {
       : undefined;
 
   async verify(idToken: string): Promise<OAuthTokenClaims> {
-      console.log('hey je suis la ')
-
     if (!this.verifier) {
       throw new AppException(ErrorCode.AUTH_PROVIDER_NOT_CONFIGURED, 'GOOGLE_OAUTH_CLIENT_ID non configuré');
     }
