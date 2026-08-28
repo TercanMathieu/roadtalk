@@ -1,7 +1,5 @@
 # RoadTalk
 
-Application mobile de navigation moto (V1). Voir `docs/adr/` pour les décisions d'architecture (à partir de la session 1).
-
 ## Prérequis
 
 - Node 22 LTS (voir `.node-version`)
