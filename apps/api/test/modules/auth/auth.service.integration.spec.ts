@@ -8,8 +8,8 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { AccessTokenService } from '../../../src/infrastructure/auth/access-token.service';
 import { PrismaService } from '../../../src/infrastructure/database/prisma.service';
 import { type AppErrorBody,AppException } from '../../../src/infrastructure/errors/app-exception';
-import type { AppleTokenVerifier } from '../../../src/modules/auth/provider-token-verifer';
 import { AuthService } from '../../../src/modules/auth/auth.service';
+import type { AppleTokenVerifier } from '../../../src/modules/auth/provider-token-verifer';
 import type { GoogleTokenVerifier } from '../../../src/modules/auth/provider-token-verifer';
 import { UsersService } from '../../../src/modules/users/users.service';
 
