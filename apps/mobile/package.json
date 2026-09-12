@@ -4,7 +4,8 @@
   "version": "0.0.0",
   "main": "expo-router/entry",
   "scripts": {
-    "dev": "expo start --dev-client",
+    "dev": "node scripts/link-emulator-api.mjs && expo start --dev-client",
+    "emulator:link": "node scripts/link-emulator-api.mjs",
     "android": "expo run:android",
     "ios": "expo run:ios",
     "build": "expo export",

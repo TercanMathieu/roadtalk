@@ -1,6 +1,6 @@
 import { ErrorCode } from '@roadtalk/contracts';
 
-const API_URL = String(process.env['EXPO_PUBLIC_API_URL'] ?? '');
+import { API_BASE_URL } from './apiUrl';
 
 interface ApiErrorBody {
   readonly code: ErrorCode;
@@ -29,12 +29,20 @@ interface RequestOptions {
 }
 
 export async function request(method: string, path: string, options?: RequestOptions): Promise<unknown> {
+  if (API_BASE_URL === undefined) {
+    // Message explicite plutôt qu'une URL vide qui partirait dans le vide et
+    // ressortirait en « Network request failed », symptôme illisible.
+    throw new Error(
+      "Adresse de l'API introuvable : ni EXPO_PUBLIC_API_URL, ni hôte Metro disponible.",
+    );
+  }
+
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (options?.accessToken !== undefined) {
     headers['Authorization'] = `Bearer ${options.accessToken}`;
   }
 
-  const response = await fetch(`${API_URL}${path}`, {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
     method,
     headers,
     ...(options?.body !== undefined ? { body: JSON.stringify(options.body) } : {}),

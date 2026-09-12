@@ -35,10 +35,11 @@ module.exports = function baseConfig({ tsconfigRootDir }) {
       },
     },
     {
-      // Fichiers de config à la racine des apps : hors périmètre du tsconfig applicatif,
-      // donc pas de type-checking dessus (sinon "not found by the project service").
-      // Ce sont aussi des fichiers CommonJS légitimes (chargés par Node directement).
-      files: ['**/*.config.js', '**/*.config.cjs', 'eslint.config.js'],
+      // Fichiers de config à la racine des apps et scripts d'outillage : hors
+      // périmètre du tsconfig applicatif, donc pas de type-checking dessus
+      // (sinon "not found by the project service"). Ce sont aussi des fichiers
+      // chargés directement par Node, pas empaquetés avec l'app.
+      files: ['**/*.config.js', '**/*.config.cjs', 'eslint.config.js', 'scripts/**'],
       ...tseslint.configs.disableTypeChecked,
       rules: {
         ...tseslint.configs.disableTypeChecked.rules,
