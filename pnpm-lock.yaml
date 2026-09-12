@@ -99,6 +99,9 @@ importers:
       '@roadtalk/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@roadtalk/domain-shared':
+        specifier: workspace:*
+        version: link:../../packages/domain-shared
       expo:
         specifier: 54.0.36
         version: 54.0.36(@babel/core@7.26.0)(@expo/metro-runtime@6.1.2)(expo-router@6.0.24)(react-native@0.81.5(@babel/core@7.26.0)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)(typescript@5.9.3)

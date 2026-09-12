@@ -1,4 +1,4 @@
-import { Camera, Map, type StyleSpecification, UserLocation } from '@maplibre/maplibre-react-native';
+import { Camera, Map, type StyleSpecification } from '@maplibre/maplibre-react-native';
 import type React from 'react';
 import { useEffect, useState } from 'react';
 import { View } from 'react-native';
@@ -8,6 +8,7 @@ import { loadNavigationMapStyle } from './loadMapStyle';
 import { DEFAULT_CENTER_COORDINATES, DEFAULT_ZOOM_LEVEL, MAP_STYLE_URL } from './map.config';
 import { styles } from './MapScreen.styles';
 import { useUserLocationPermission } from './useUserLocationPermission';
+import { VehicleMarker } from './VehicleMarker';
 
 // Écran de préparation (DA section 8) : vue d'ensemble de la position, pas le
 // guidage minimal — le recentrage "default" ne fait pas tourner la carte
@@ -45,7 +46,7 @@ export function MapScreen(): React.JSX.Element {
           }}
           {...(permission === 'granted' ? { trackUserLocation: 'default' as const } : {})}
         />
-        {permission === 'granted' ? <UserLocation animated minDisplacement={5} /> : null}
+        {permission === 'granted' ? <VehicleMarker /> : null}
       </Map>
       {permission === 'denied' ? (
         <View style={styles.permissionBanner}>
