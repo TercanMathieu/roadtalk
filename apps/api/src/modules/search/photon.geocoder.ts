@@ -30,6 +30,24 @@ const photonResponseSchema = z.object({
 
 type PhotonProperties = z.infer<typeof photonFeatureSchema>['properties'];
 
+// La position de l'utilisateur n'est transmise au géocodeur qu'arrondie :
+// 2 décimales ≈ 1 km, largement suffisant pour départager des villes distantes
+// de plusieurs dizaines de kilomètres, et nettement moins traçable qu'une
+// position GPS exacte envoyée à un tiers à chaque frappe (C4).
+const BIAS_PRECISION_DECIMALS = 2;
+
+function roundCoordinate(value: number): number {
+  const factor = 10 ** BIAS_PRECISION_DECIMALS;
+
+  return Math.round(value * factor) / factor;
+}
+
+// Point autour duquel privilégier les résultats — la position de l'utilisateur.
+export interface SearchOrigin {
+  readonly latitude: number;
+  readonly longitude: number;
+}
+
 // Ligne principale : le plus spécifique dont on dispose.
 function buildLabel(properties: PhotonProperties): string | undefined {
   const streetLine = [properties.housenumber, properties.street].filter(Boolean).join(' ');
@@ -50,11 +68,26 @@ function buildContext(properties: PhotonProperties, label: string): string | nul
 export class PhotonGeocoder {
   private readonly logger = new Logger(PhotonGeocoder.name);
 
-  async searchAddresses(query: string, limit: number): Promise<AddressSuggestionDto[]> {
+  async searchAddresses(
+    query: string,
+    limit: number,
+    origin?: SearchOrigin,
+  ): Promise<AddressSuggestionDto[]> {
     const url = new URL('/api', env.PHOTON_URL);
     url.searchParams.set('q', query);
     url.searchParams.set('limit', String(limit));
     url.searchParams.set('lang', 'fr');
+
+    if (origin !== undefined) {
+      // Photon pondère ici importance du lieu ET distance à ce point : depuis
+      // Lyon, « paris » renvoie toujours la capitale avant le lieu-dit du même
+      // nom situé à 9 km. Ne surtout pas retrier les résultats par distance
+      // derrière, ce compromis serait détruit. `location_bias_scale` reste au
+      // défaut : mesuré sans effet utile en dessous de 1, et à 1 le biais est
+      // purement désactivé.
+      url.searchParams.set('lat', String(roundCoordinate(origin.latitude)));
+      url.searchParams.set('lon', String(roundCoordinate(origin.longitude)));
+    }
 
     const payload = await this.fetchPayload(url);
 

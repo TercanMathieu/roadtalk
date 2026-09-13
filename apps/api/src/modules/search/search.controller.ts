@@ -23,6 +23,14 @@ export class SearchController {
   async searchAddresses(
     @Query(new ZodValidationPipe(addressSearchQuerySchema)) query: AddressSearchQueryDto,
   ): Promise<AddressSearchResultsDto> {
-    return this.searchService.searchAddresses(query.q);
+    // Reconstruction plutôt que passage direct : le contrat garantit que les
+    // deux coordonnées vont ensemble, mais seul un objet complet ou absent est
+    // acceptable pour `SearchOrigin` (exactOptionalPropertyTypes).
+    const origin =
+      query.latitude !== undefined && query.longitude !== undefined
+        ? { latitude: query.latitude, longitude: query.longitude }
+        : undefined;
+
+    return this.searchService.searchAddresses(query.q, origin);
   }
 }

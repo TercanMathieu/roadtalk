@@ -1,16 +1,31 @@
 import { ErrorCode } from '@roadtalk/contracts';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, type Mock, vi } from 'vitest';
 
 import { type AppErrorBody, AppException } from '../../../src/infrastructure/errors/app-exception';
 import { PhotonGeocoder } from '../../../src/modules/search/photon.geocoder';
 
-function mockPhotonResponse(body: unknown, ok = true, status = 200): void {
-  const fetchMock = vi.fn().mockResolvedValue({
+// Typé sur la signature réellement appelée par le géocodeur : c'est ce qui
+// permet de relire l'URL transmise sans cast.
+type FetchMock = Mock<(url: URL) => Promise<unknown>>;
+
+function mockPhotonResponse(body: unknown, ok = true, status = 200): FetchMock {
+  const fetchMock: FetchMock = vi.fn<(url: URL) => Promise<unknown>>().mockResolvedValue({
     ok,
     status,
     json: () => Promise.resolve(body),
   });
   vi.stubGlobal('fetch', fetchMock);
+
+  return fetchMock;
+}
+
+function calledUrl(fetchMock: FetchMock): URL {
+  const url = fetchMock.mock.calls[0]?.[0];
+  if (url === undefined) {
+    expect.unreachable('fetch devait être appelé');
+  }
+
+  return url;
 }
 
 function feature(properties: Record<string, string>, coordinates = [2.35, 48.86]): unknown {
@@ -100,6 +115,29 @@ describe('PhotonGeocoder', () => {
 
     expect(results).toHaveLength(1);
     expect(results[0]?.label).toBe('Nantes');
+  });
+
+  it('transmet la position de l\'utilisateur, arrondie au centième de degré', async () => {
+    const fetchMock = mockPhotonResponse({ features: [] });
+
+    await geocoder.searchAddresses('18 avenue leon blum', 8, {
+      latitude: 48.858372,
+      longitude: 2.294481,
+    });
+
+    const url = calledUrl(fetchMock);
+    expect(url.searchParams.get('lat')).toBe('48.86');
+    expect(url.searchParams.get('lon')).toBe('2.29');
+  });
+
+  it("n'envoie aucune coordonnée quand la position est inconnue", async () => {
+    const fetchMock = mockPhotonResponse({ features: [] });
+
+    await geocoder.searchAddresses('18 avenue leon blum', 8);
+
+    const url = calledUrl(fetchMock);
+    expect(url.searchParams.has('lat')).toBe(false);
+    expect(url.searchParams.has('lon')).toBe(false);
   });
 
   it('lève SEARCH_PROVIDER_UNAVAILABLE quand le géocodeur est injoignable', async () => {

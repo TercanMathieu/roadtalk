@@ -11,7 +11,8 @@ export const styles = StyleSheet.create({
   },
   permissionBanner: {
     position: 'absolute',
-    top: spacing.lg,
+    // En bas : le haut de l'écran est occupé par la barre de recherche.
+    bottom: spacing.lg,
     left: spacing.md,
     right: spacing.md,
     backgroundColor: colors.surface,
