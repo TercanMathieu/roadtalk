@@ -18,6 +18,10 @@ const envSchema = z.object({
   // réellement utilisé (vérifié à l'usage dans les vérificateurs OAuth, pas ici).
   GOOGLE_OAUTH_CLIENT_ID: optionalNonEmptyString,
   APPLE_CLIENT_ID: optionalNonEmptyString,
+  // Géocodeur. Le défaut pointe sur l'instance de démonstration de la
+  // communauté OSM : pratique en dev, à remplacer par une instance
+  // auto-hébergée avant toute mise en production (C5).
+  PHOTON_URL: z.string().url().default('https://photon.komoot.io'),
 });
 
 // Échoue vite et clairement au démarrage si une variable manque, plutôt que

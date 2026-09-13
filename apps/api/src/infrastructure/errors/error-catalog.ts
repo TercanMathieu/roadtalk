@@ -46,6 +46,12 @@ export const ERROR_CATALOG: Record<ErrorCode, ErrorDefinition> = {
     status: HttpStatus.INTERNAL_SERVER_ERROR,
     message: "Fournisseur d'authentification non configuré",
   },
+  [ErrorCode.SEARCH_PROVIDER_UNAVAILABLE]: {
+    // 502 et non 503 : c'est la réponse d'un service en amont qui est en
+    // cause, pas notre propre disponibilité.
+    status: HttpStatus.BAD_GATEWAY,
+    message: 'Service de recherche d\'adresse momentanément indisponible',
+  },
   [ErrorCode.VALIDATION_ERROR]: {
     status: HttpStatus.BAD_REQUEST,
     message: 'Requête invalide',
