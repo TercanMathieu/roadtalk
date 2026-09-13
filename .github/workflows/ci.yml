@@ -5,15 +5,24 @@ on:
     branches: [main]
   pull_request:
 
+# Un push qui en remplace un autre annule le run devenu inutile : les minutes
+# GitHub Actions sont comptées (C5).
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
 jobs:
   quality:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
+      # `version` volontairement omis : l'action lit le champ `packageManager`
+      # de package.json, qui reste la seule source de vérité pour pnpm.
       - uses: pnpm/action-setup@v4
-        with:
-          version: 9.15.0
 
       - uses: actions/setup-node@v4
         with:
@@ -29,5 +38,7 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
+      # Les tests d'intégration démarrent une vraie Postgres via Testcontainers.
+      # Le runner ubuntu fournit Docker, aucun service à déclarer.
       - name: Test
         run: pnpm test

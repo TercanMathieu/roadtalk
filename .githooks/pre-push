@@ -1,0 +1,11 @@
+#!/bin/sh
+# Barrière locale : refuse le push si le code ne compile pas ou viole le lint.
+# Les tests ne sont pas lancés ici — ils exigent Docker et coûtent ~40 s ; c'est
+# le rôle de la CI. Turborepo met en cache, un push sans changement est instantané.
+#
+# Contournable avec `git push --no-verify` : c'est une aide, pas une garantie.
+# La garantie est la protection de branche côté GitHub.
+set -e
+
+echo "pre-push : lint + typecheck…"
+pnpm exec turbo run lint typecheck
