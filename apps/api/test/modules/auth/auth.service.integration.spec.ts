@@ -1,4 +1,5 @@
 import { execSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import path from 'node:path';
 
 import { ErrorCode } from '@roadtalk/contracts';
@@ -14,6 +15,12 @@ import type { GoogleTokenVerifier } from '../../../src/modules/auth/provider-tok
 import { UsersService } from '../../../src/modules/users/users.service';
 
 const apiRoot = path.resolve(__dirname, '../../..');
+
+// Même hachage que le service, qui ne l'exporte pas : on ne stocke jamais un
+// refresh token en clair, donc le retrouver en base passe par son empreinte.
+function hashToken(token: string): string {
+  return createHash('sha256').update(token).digest('hex');
+}
 
 async function expectErrorCode(promise: Promise<unknown>, code: ErrorCode): Promise<void> {
   try {
@@ -114,5 +121,82 @@ describe('AuthService (intégration, vraie Postgres via Testcontainers)', () => 
     await authService.logout(login.refreshToken);
 
     await expectErrorCode(authService.refresh(login.refreshToken), ErrorCode.AUTH_REFRESH_TOKEN_REUSED);
+  });
+
+  it('refresh avec un token expiré échoue avec AUTH_REFRESH_TOKEN_EXPIRED', async () => {
+    const login = await authService.loginWithApple('fake-id-token');
+
+    // On fait vieillir le jeton en base plutôt que d'attendre 30 jours.
+    await prisma.refreshToken.update({
+      where: { tokenHash: hashToken(login.refreshToken) },
+      data: { expiresAt: new Date(Date.now() - 1000) },
+    });
+
+    await expectErrorCode(
+      authService.refresh(login.refreshToken),
+      ErrorCode.AUTH_REFRESH_TOKEN_EXPIRED,
+    );
+  });
+
+  it('un token expiré ET révoqué est traité comme un réemploi, la détection de vol primant sur la date', async () => {
+    const login = await authService.loginWithApple('fake-id-token');
+    await authService.refresh(login.refreshToken);
+
+    await prisma.refreshToken.update({
+      where: { tokenHash: hashToken(login.refreshToken) },
+      data: { expiresAt: new Date(Date.now() - 1000) },
+    });
+
+    await expectErrorCode(
+      authService.refresh(login.refreshToken),
+      ErrorCode.AUTH_REFRESH_TOKEN_REUSED,
+    );
+  });
+
+  it('supprime les refresh tokens expirés du user à chaque émission', async () => {
+    const login = await authService.loginWithApple('fake-id-token');
+    const { userId } = await prisma.refreshToken.findFirstOrThrow({
+      where: { tokenHash: { not: '' } },
+      orderBy: { createdAt: 'desc' },
+      select: { userId: true },
+    });
+
+    // Une trace ancienne, telle qu'en accumulerait un usage prolongé.
+    await prisma.refreshToken.create({
+      data: {
+        userId,
+        tokenHash: 'hash-d-un-token-expire',
+        expiresAt: new Date(Date.now() - 24 * 60 * 60 * 1000),
+      },
+    });
+
+    await authService.refresh(login.refreshToken);
+
+    const survivor = await prisma.refreshToken.findUnique({
+      where: { tokenHash: 'hash-d-un-token-expire' },
+    });
+    expect(survivor).toBeNull();
+  });
+
+  it('conserve un token révoqué mais non expiré, sans quoi la détection de vol serait désarmée', async () => {
+    const login = await authService.loginWithApple('fake-id-token');
+
+    // La rotation révoque `login.refreshToken` sans l'expirer : il doit
+    // rester en base pour que son réemploi reste reconnaissable.
+    const rotated = await authService.refresh(login.refreshToken);
+    await authService.refresh(rotated.refreshToken);
+
+    const revoked = await prisma.refreshToken.findUnique({
+      where: { tokenHash: hashToken(login.refreshToken) },
+    });
+    expect(revoked).not.toBeNull();
+    expect(revoked?.revokedAt).not.toBeNull();
+
+    // Et la conséquence qui compte vraiment : le réemploi est toujours
+    // détecté comme tel, pas confondu avec un jeton inconnu.
+    await expectErrorCode(
+      authService.refresh(login.refreshToken),
+      ErrorCode.AUTH_REFRESH_TOKEN_REUSED,
+    );
   });
 });

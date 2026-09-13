@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from 'node:crypto';
 
 import { Injectable } from '@nestjs/common';
+import type { RefreshToken } from '@prisma/client';
 import { ErrorCode, type TokenPairDto } from '@roadtalk/contracts';
 import { toUserId, type UserId } from '@roadtalk/domain-shared';
 
@@ -63,7 +64,28 @@ export class AuthService {
   }
 
   async refresh(refreshToken: string): Promise<TokenPairDto> {
-    const tokenHash = hashToken(refreshToken);
+    const stored = await this.loadUsableRefreshToken(hashToken(refreshToken));
+
+    await this.prisma.refreshToken.update({
+      where: { id: stored.id },
+      data: { revokedAt: new Date() },
+    });
+
+    return this.issueTokenPair(toUserId(stored.userId));
+  }
+
+  /**
+   * Seul chemin de lecture d'un refresh token destiné à être utilisé : charge
+   * la ligne et refuse tout ce qui n'est pas utilisable, avec un code distinct
+   * par cause. Tout nouvel appelant doit passer par ici — c'est ce qui garantit
+   * qu'aucune des trois vérifications ne puisse être oubliée en chemin.
+   *
+   * Volontairement pas de filtrage dans la requête (`expiresAt: { gt: now }`) :
+   * ça confondrait « expiré » et « inconnu » en un seul `INVALID`, alors que
+   * la distinction est utile au diagnostic — et l'ordre compte, un jeton
+   * révoqué doit déclencher la détection de vol avant tout examen de sa date.
+   */
+  private async loadUsableRefreshToken(tokenHash: string): Promise<RefreshToken> {
     const stored = await this.prisma.refreshToken.findUnique({ where: { tokenHash } });
 
     if (!stored) {
@@ -85,12 +107,7 @@ export class AuthService {
       throw new AppException(ErrorCode.AUTH_REFRESH_TOKEN_EXPIRED);
     }
 
-    await this.prisma.refreshToken.update({
-      where: { id: stored.id },
-      data: { revokedAt: new Date() },
-    });
-
-    return this.issueTokenPair(toUserId(stored.userId));
+    return stored;
   }
 
   async logout(refreshToken: string): Promise<void> {
@@ -114,6 +131,29 @@ export class AuthService {
       },
     });
 
+    await this.purgeExpiredTokens(userId);
+
     return { accessToken, refreshToken };
+  }
+
+  /**
+   * La rotation crée une ligne à chaque renouvellement — environ une par
+   * quart d'heure d'usage actif — et rien ne les supprimait : de la donnée
+   * personnelle conservée sans limite, ce qu'interdit C4.
+   *
+   * Seuls les jetons **expirés** sont supprimés. Un jeton révoqué mais encore
+   * valide doit rester en base : c'est lui qui permet de reconnaître un
+   * réemploi, donc de détecter un vol. L'effacer trop tôt transformerait ce
+   * signal en simple « jeton inconnu » et désarmerait la détection.
+   *
+   * Purge opportuniste plutôt que tâche planifiée : bornée à un utilisateur,
+   * sur l'index `userId` existant, elle évite d'attendre la mise en place
+   * d'un ordonnanceur. Une purge globale restera utile le jour où des comptes
+   * cesseront de se connecter — leurs jetons ne seraient jamais balayés ici.
+   */
+  private async purgeExpiredTokens(userId: UserId): Promise<void> {
+    await this.prisma.refreshToken.deleteMany({
+      where: { userId, expiresAt: { lt: new Date() } },
+    });
   }
 }
