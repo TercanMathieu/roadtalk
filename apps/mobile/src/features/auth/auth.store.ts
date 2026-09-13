@@ -1,6 +1,8 @@
+import { ErrorCode } from '@roadtalk/contracts';
 import * as SecureStore from 'expo-secure-store';
 import { create } from 'zustand';
 
+import { ApiError } from '../../lib/http';
 import { getMe, setUsername as apiSetUsername } from '../profile/api';
 import { loginWithGoogle, logout, refreshTokenPair } from './api';
 
@@ -23,7 +25,7 @@ interface AuthState {
 // Seul le refresh token (opaque, rotatif) est persisté sur l'appareil — via
 // SecureStore (Keychain/Keystore), jamais AsyncStorage en clair (C4). L'access
 // token (15 min) reste en mémoire, régénéré au démarrage via hydrate().
-export const useAuthStore = create<AuthState>((set, get) => ({
+export const useAuthStore = create<AuthState>((set) => ({
   status: 'checking',
   accessToken: undefined,
   username: undefined,
@@ -66,11 +68,68 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   chooseUsername: async (username: string) => {
-    const { accessToken } = get();
-    if (accessToken === undefined) {
-      throw new Error('Non authentifié');
-    }
-    const me = await apiSetUsername(accessToken, username);
+    const me = await withFreshAccessToken((accessToken) => apiSetUsername(accessToken, username));
     set({ username: me.username });
   },
 }));
+
+// Un seul rafraîchissement en vol à la fois. Nos refresh tokens tournent à
+// chaque usage et un jeton révoqué qu'on réutilise est traité comme un vol
+// (révocation de toutes les sessions) : deux rafraîchissements concurrents
+// présenteraient le même jeton et déconnecteraient l'utilisateur partout.
+let refreshInFlight: Promise<string> | undefined;
+
+async function performRefresh(): Promise<string> {
+  const storedRefreshToken = await SecureStore.getItemAsync(REFRESH_TOKEN_KEY);
+  if (storedRefreshToken === null) {
+    throw new Error('Aucune session à rafraîchir');
+  }
+
+  const tokens = await refreshTokenPair(storedRefreshToken);
+  await SecureStore.setItemAsync(REFRESH_TOKEN_KEY, tokens.refreshToken);
+  useAuthStore.setState({ accessToken: tokens.accessToken });
+
+  return tokens.accessToken;
+}
+
+function refreshAccessToken(): Promise<string> {
+  refreshInFlight ??= performRefresh().finally(() => {
+    refreshInFlight = undefined;
+  });
+
+  return refreshInFlight;
+}
+
+/**
+ * Exécute un appel authentifié en gérant l'expiration de l'access token
+ * (15 min) : si le serveur le refuse, on en obtient un nouveau et on rejoue
+ * l'appel une fois. Passer par ce helper plutôt que de lire `accessToken`
+ * directement dans le store.
+ */
+export async function withFreshAccessToken<T>(
+  call: (accessToken: string) => Promise<T>,
+): Promise<T> {
+  const { accessToken } = useAuthStore.getState();
+  if (accessToken === undefined) {
+    throw new Error('Non authentifié');
+  }
+
+  try {
+    return await call(accessToken);
+  } catch (error) {
+    if (!(error instanceof ApiError) || error.code !== ErrorCode.AUTH_TOKEN_INVALID) {
+      throw error;
+    }
+  }
+
+  // Un seul réessai : si le jeton fraîchement émis est refusé lui aussi,
+  // insister ne ferait que boucler.
+  try {
+    return await call(await refreshAccessToken());
+  } catch (error) {
+    // La session est morte (refresh expiré, révoqué, ou vol détecté) :
+    // déconnecter proprement plutôt que laisser l'app dans un état zombie.
+    await useAuthStore.getState().signOut();
+    throw error;
+  }
+}
