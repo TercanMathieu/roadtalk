@@ -17,3 +17,11 @@ export const DEFAULT_CENTER_COORDINATES: [number, number] = [2.3522, 48.8566];
 // turn-by-turn reprendra ce niveau en y ajoutant le suivi du cap et
 // l'inclinaison — c'est un mode distinct (DA section 8).
 export const DEFAULT_ZOOM_LEVEL = 17;
+
+// Inclinaison de la caméra, en degrés (0 = vue zénithale, 60 = maximum MapLibre).
+// 45° donne la perspective attendue d'un GPS : on voit ce qui arrive devant
+// plutôt que ce qu'on survole. Coût à connaître — une caméra inclinée fait
+// entrer bien plus de tuiles dans le champ (tout ce qui va jusqu'à l'horizon),
+// donc plus de rendu et plus de données (C1, et un corridor hors-ligne plus
+// large à pré-cacher, C3).
+export const DEFAULT_PITCH_DEGREES = 45;
