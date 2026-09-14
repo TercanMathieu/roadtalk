@@ -40,13 +40,27 @@ Lancer un seul fichier de test :
 cd apps/api && pnpm exec vitest run test/modules/users/users.service.integration.spec.ts
 ```
 
-Base de données locale (Postgres+PostGIS, Redis) :
+Base de données locale (Postgres+PostGIS, Redis) — tout depuis la racine :
 
 ```bash
-docker compose -f infra/docker/docker-compose.yml up -d
+pnpm services:up                    # démarre Postgres + Redis (docker compose -d)
+pnpm services:ps                    # ce qui tourne, et leur état de santé
+pnpm services:down                  # arrête tout
+
+pnpm db:shell                       # psql interactif dans le conteneur
+pnpm db:studio                      # Prisma Studio, interface web sur :5555
+pnpm redis:shell                    # redis-cli interactif dans le conteneur
+
 cd apps/api && pnpm db:migrate      # prisma migrate dev
 cd apps/api && pnpm db:generate     # prisma generate (après modif de prisma/schema.prisma)
 ```
+
+Les clients `psql`/`redis-cli` ne sont pas requis sur la machine hôte : les scripts
+ci-dessus utilisent ceux embarqués dans les conteneurs, ce qui évite aussi tout
+décalage de version avec le serveur. Connexion directe depuis un outil externe :
+`postgres://roadtalk:roadtalk_dev@localhost:5432/roadtalk` et `localhost:6379`.
+
+Redis tourne mais n'est encore référencé nulle part dans le code — il attend BullMQ.
 
 Variables d'environnement de l'API : voir `apps/api/.env.example` (commentaires inclus,
 notamment comment générer la paire de clés EdDSA pour `JWT_PRIVATE_KEY`/`JWT_PUBLIC_KEY`).
