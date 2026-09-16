@@ -7,11 +7,17 @@
   "packageManager": "pnpm@9.15.0",
   "scripts": {
     "build": "turbo run build",
+    "db:shell": "docker compose -f infra/docker/docker-compose.yml exec postgres psql -U roadtalk -d roadtalk",
+    "db:studio": "pnpm --filter @roadtalk/api exec prisma studio",
     "dev": "turbo run dev",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "turbo run lint",
     "prepare": "git config core.hooksPath .githooks",
+    "redis:shell": "docker compose -f infra/docker/docker-compose.yml exec redis redis-cli",
+    "services:down": "docker compose -f infra/docker/docker-compose.yml down",
+    "services:ps": "docker compose -f infra/docker/docker-compose.yml ps",
+    "services:up": "docker compose -f infra/docker/docker-compose.yml up -d",
     "test": "turbo run test",
     "typecheck": "turbo run typecheck"
   },
