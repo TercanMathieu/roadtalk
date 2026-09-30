@@ -60,6 +60,13 @@ ci-dessus utilisent ceux embarqués dans les conteneurs, ce qui évite aussi tou
 décalage de version avec le serveur. Connexion directe depuis un outil externe :
 `postgres://roadtalk:roadtalk_dev@localhost:5432/roadtalk` et `localhost:6379`.
 
+Interfaces web pour parcourir les données (démarrées par `pnpm services:up`) :
+Prisma Studio sur http://localhost:5555 pour Postgres, RedisInsight sur
+http://localhost:5540 pour Redis (le connecter à `redis:6379`, nom du service
+Docker plutôt que `localhost`, puisqu'il tourne dans le même réseau compose).
+Outils de dev uniquement, aucune authentification configurée — jamais exposés
+hors de la machine locale.
+
 Redis tourne mais n'est encore référencé nulle part dans le code — il attend BullMQ.
 
 Variables d'environnement de l'API : voir `apps/api/.env.example` (commentaires inclus,

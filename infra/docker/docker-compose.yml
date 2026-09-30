@@ -25,5 +25,18 @@ services:
       timeout: 5s
       retries: 10
 
+  # Interface web pour parcourir Redis (pnpm services:up), équivalent de
+  # Prisma Studio côté Postgres. Outil de dev seul, jamais destiné à tourner
+  # en production — aucune authentification configurée.
+  redisinsight:
+    image: redis/redisinsight:latest
+    ports:
+      - '5540:5540'
+    volumes:
+      - redisinsight_data:/data
+    depends_on:
+      - redis
+
 volumes:
   postgres_data:
+  redisinsight_data:
