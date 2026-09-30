@@ -50,6 +50,14 @@ export const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: colors.border,
   },
+  historySuggestion: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  historyText: {
+    flex: 1,
+  },
   firstSuggestion: {
     borderTopWidth: 0,
   },
