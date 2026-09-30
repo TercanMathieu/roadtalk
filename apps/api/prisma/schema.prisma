@@ -24,7 +24,8 @@ model User {
   googleUserId String?  @unique @map("google_user_id")
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
 
-  refreshTokens RefreshToken[]
+  refreshTokens         RefreshToken[]
+  addressHistoryEntries AddressHistoryEntry[]
 
   @@map("users")
 }
@@ -48,4 +49,33 @@ model RefreshToken {
 
   @@index([userId])
   @@map("refresh_tokens")
+}
+
+model AddressHistoryEntry {
+  id     String @id @default(uuid()) @db.Uuid
+  userId String @map("user_id") @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  label     String
+  // Nullable, même raison que côté contrat de recherche : le géocodeur ne
+  // renvoie pas toujours un élément de situation exploitable.
+  context   String?
+  latitude  Float
+  longitude Float
+
+  // Ni créé, ni modifié au sens CRUD classique : c'est l'instant de la
+  // dernière sélection, mis à jour à chaque fois que l'utilisateur reclique
+  // la même adresse plutôt que d'empiler une nouvelle ligne (voir la
+  // contrainte unique ci-dessous).
+  selectedAt DateTime @default(now()) @map("selected_at") @db.Timestamptz(3)
+
+  // Identifie "la même adresse" par sa valeur, faute d'identifiant stable
+  // côté géocodeur (Photon ne fournit pas de place ID). Rend l'écriture
+  // idempotente par upsert : une sélection répétée met juste selectedAt à
+  // jour au lieu de dupliquer la ligne.
+  @@unique([userId, label, latitude, longitude])
+  // Tri par récence, filtré par utilisateur — exactement le sens de lecture
+  // de la requête d'historique.
+  @@index([userId, selectedAt])
+  @@map("address_history_entries")
 }

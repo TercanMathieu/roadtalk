@@ -4,4 +4,5 @@ export * from './ride.contract';
 export * from './route.contract';
 export * from './routing.contract';
 export * from './search.contract';
+export * from './search-history.contract';
 export * from './user.contract';
