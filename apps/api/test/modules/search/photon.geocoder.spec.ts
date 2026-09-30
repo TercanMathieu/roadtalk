@@ -166,4 +166,60 @@ describe('PhotonGeocoder', () => {
       ErrorCode.SEARCH_PROVIDER_UNAVAILABLE,
     );
   });
+
+  describe('reverseGeocode', () => {
+    it('trouve le lieu au point donné', async () => {
+      mockPhotonResponse({
+        features: [feature({ housenumber: '6', street: 'Place de l\'Hôtel de Ville', city: 'Paris' })],
+      });
+
+      const result = await geocoder.reverseGeocode({ latitude: 48.8566, longitude: 2.3522 });
+
+      expect(result).toMatchObject({ label: '6 Place de l\'Hôtel de Ville', context: 'Paris' });
+    });
+
+    it('transmet les coordonnées exactes, sans arrondi — contrairement à searchAddresses', async () => {
+      const fetchMock = mockPhotonResponse({ features: [] });
+
+      await geocoder.reverseGeocode({ latitude: 48.858372, longitude: 2.294481 });
+
+      const url = calledUrl(fetchMock);
+      expect(url.searchParams.get('lat')).toBe('48.858372');
+      expect(url.searchParams.get('lon')).toBe('2.294481');
+    });
+
+    it('interroge /reverse, pas /api', async () => {
+      const fetchMock = mockPhotonResponse({ features: [] });
+
+      await geocoder.reverseGeocode({ latitude: 48.8566, longitude: 2.3522 });
+
+      const url = calledUrl(fetchMock);
+      expect(url.pathname).toBe('/reverse');
+    });
+
+    it("renvoie undefined plutôt qu'une erreur quand rien n'est trouvé à proximité", async () => {
+      mockPhotonResponse({ features: [] });
+
+      const result = await geocoder.reverseGeocode({ latitude: 0, longitude: 0 });
+
+      expect(result).toBeUndefined();
+    });
+
+    it('renvoie undefined quand le seul résultat est mal formé', async () => {
+      mockPhotonResponse({ features: [{ geometry: { coordinates: 'pas-un-tuple' }, properties: {} }] });
+
+      const result = await geocoder.reverseGeocode({ latitude: 48.8566, longitude: 2.3522 });
+
+      expect(result).toBeUndefined();
+    });
+
+    it('lève SEARCH_PROVIDER_UNAVAILABLE quand le géocodeur est injoignable', async () => {
+      vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('ECONNREFUSED')));
+
+      await expectErrorCode(
+        geocoder.reverseGeocode({ latitude: 48.8566, longitude: 2.3522 }),
+        ErrorCode.SEARCH_PROVIDER_UNAVAILABLE,
+      );
+    });
+  });
 });

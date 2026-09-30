@@ -38,3 +38,14 @@ export const addressSearchResultsSchema = z.object({
 });
 
 export type AddressSearchResultsDto = z.infer<typeof addressSearchResultsSchema>;
+
+// Coordonnées vers un lieu nommé (appui sur la carte) — l'inverse de
+// addressSearchQuerySchema. La réponse réutilise addressSuggestionSchema :
+// même forme qu'un résultat de recherche, un point tapé sur la carte se
+// traite ensuite exactement comme une adresse choisie dans la barre.
+export const reverseGeocodeQuerySchema = z.object({
+  latitude: z.coerce.number().min(-90).max(90),
+  longitude: z.coerce.number().min(-180).max(180),
+});
+
+export type ReverseGeocodeQueryDto = z.infer<typeof reverseGeocodeQuerySchema>;

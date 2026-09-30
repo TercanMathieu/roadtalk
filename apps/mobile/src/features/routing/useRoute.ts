@@ -11,20 +11,30 @@ interface RouteState {
   readonly error: string | undefined;
 }
 
-// Recalcule l'itinéraire à chaque changement de destination, en lisant la
-// position au moment de l'appel (`originRef.current`) plutôt qu'en
+// Recalcule l'itinéraire à chaque changement de la liste d'arrêts, en lisant
+// la position au moment de l'appel (`originRef.current`) plutôt qu'en
 // dépendance : un point GPS reçu entre-temps ne doit pas redéclencher le
-// calcul, seul un choix explicite de destination le doit.
+// calcul, seul un ajout/retrait explicite d'arrêt le doit. `stops` en
+// dépendance est sûr malgré son type tableau : sa référence ne change que
+// lors d'un vrai ajout/retrait (jamais de mutation en place côté appelant).
+//
+// `hasOrigin` est bien nécessaire en dépendance, lui, malgré la remarque
+// ci-dessus : si le premier arrêt est ajouté avant le tout premier fix GPS,
+// `originRef.current` vaut `undefined` au moment où cet effet s'exécute, et
+// rien ne le redéclenche jamais quand le fix finit par arriver — la ref
+// changeant silencieusement, sans re-rendu. `hasOrigin` est le seul signal
+// qui bascule alors de `false` à `true` et relance ce calcul.
 export function useRoute(
-  destination: AddressSuggestionDto | undefined,
+  stops: readonly AddressSuggestionDto[],
   originRef: RefObject<LastKnownPosition | undefined>,
+  hasOrigin: boolean,
 ): RouteState {
   const [route, setRoute] = useState<RouteGeometryDto | undefined>(undefined);
   const [isComputing, setIsComputing] = useState(false);
   const [error, setError] = useState<string | undefined>(undefined);
 
   useEffect(() => {
-    if (destination === undefined) {
+    if (stops.length === 0) {
       setRoute(undefined);
       setError(undefined);
       return;
@@ -32,8 +42,11 @@ export function useRoute(
 
     const origin = originRef.current;
     if (origin === undefined) {
-      // Pas encore de fix GPS : rien à calculer plutôt qu'une erreur —
-      // situation transitoire, pas une anomalie.
+      // Pas encore de fix GPS (hasOrigin vient de basculer à `true` mais la
+      // ref n'a pas eu le temps d'être écrite, ou l'appelant est mal
+      // synchronisé) : rien à calculer plutôt qu'une erreur — situation
+      // transitoire, pas une anomalie. `hasOrigin` en dépendance garantit que
+      // ce cas se rejoue dès que la position devient réellement disponible.
       setRoute(undefined);
       setError(undefined);
       return;
@@ -43,9 +56,12 @@ export function useRoute(
     setIsComputing(true);
     setError(undefined);
 
-    withFreshAccessToken((accessToken) =>
-      computeRoute(accessToken, origin, { latitude: destination.latitude, longitude: destination.longitude }),
-    )
+    const waypoints = [
+      origin,
+      ...stops.map((stop) => ({ latitude: stop.latitude, longitude: stop.longitude })),
+    ];
+
+    withFreshAccessToken((accessToken) => computeRoute(accessToken, waypoints))
       .then((result) => {
         if (!cancelled) {
           setRoute(result);
@@ -66,7 +82,7 @@ export function useRoute(
     return () => {
       cancelled = true;
     };
-  }, [destination, originRef]);
+  }, [stops, originRef, hasOrigin]);
 
   return { route, isComputing, error };
 }

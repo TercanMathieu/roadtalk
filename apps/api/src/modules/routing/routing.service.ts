@@ -7,7 +7,7 @@ import { ValhallaRouter } from './valhalla.router';
 export class RoutingService {
   constructor(private readonly router: ValhallaRouter) {}
 
-  async computeRoute(origin: GeoPointDto, destination: GeoPointDto): Promise<RouteGeometryDto> {
-    return this.router.computeRoute(origin, destination);
+  async computeRoute(waypoints: readonly GeoPointDto[]): Promise<RouteGeometryDto> {
+    return this.router.computeRoute(waypoints);
   }
 }

@@ -11,9 +11,9 @@ import { ZodResponseInterceptor } from '../../infrastructure/http/zod-response.i
 import { ZodValidationPipe } from '../../infrastructure/http/zod-validation.pipe';
 import { RoutingService } from './routing.service';
 
-// POST et non GET : un itinéraire complet (origine + destination, bientôt des
-// étapes) dépasse ce qui est raisonnable dans une query string. Protégée pour
-// la même raison que /search — éviter de servir de relais gratuit vers
+// POST et non GET : un itinéraire complet (une séquence de points, pas deux
+// coordonnées) dépasse ce qui est raisonnable dans une query string. Protégée
+// pour la même raison que /search — éviter de servir de relais gratuit vers
 // Valhalla.
 @Controller('routing')
 @UseGuards(JwtAuthGuard)
@@ -25,6 +25,6 @@ export class RoutingController {
   async computeRoute(
     @Body(new ZodValidationPipe(routingQuerySchema)) query: RoutingQueryDto,
   ): Promise<RouteGeometryDto> {
-    return this.routingService.computeRoute(query.origin, query.destination);
+    return this.routingService.computeRoute(query.waypoints);
   }
 }
