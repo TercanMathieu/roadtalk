@@ -15,6 +15,18 @@ const paris = { label: 'Paris', context: 'France', latitude: 48.8566, longitude:
 const lyon = { label: 'Lyon', context: 'France', latitude: 45.764, longitude: 4.8357 };
 const marseille = { label: 'Marseille', context: 'France', latitude: 43.2965, longitude: 5.3698 };
 
+// L'ordre de l'historique dépend de `selectedAt`, colonne au 1/1000e de
+// seconde (@db.Timestamptz(3)). Sur une machine assez rapide, des appels
+// enchaînés sans délai peuvent retomber sur la même milliseconde — situation
+// qu'un vrai utilisateur ne rencontre jamais (impossible de cliquer deux fois
+// en moins d'une milliseconde), mais qui rend un test enchaînant les
+// sélections instable selon la vitesse de la machine qui l'exécute (observé
+// en CI, jamais en local). Ce délai n'est là que pour garantir des instants
+// distincts, pas pour attendre quoi que ce soit côté service.
+function waitPastTimestampPrecision(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 5));
+}
+
 describe('SearchHistoryService (intégration, vraie Postgres via Testcontainers)', () => {
   let container: StartedPostgreSqlContainer;
   let prisma: PrismaService;
@@ -85,7 +97,9 @@ describe('SearchHistoryService (intégration, vraie Postgres via Testcontainers)
     const user = await createUser('history-reorder');
 
     await service.recordSelection(toUserId(user.id), paris);
+    await waitPastTimestampPrecision();
     await service.recordSelection(toUserId(user.id), lyon);
+    await waitPastTimestampPrecision();
     // Paris redevient la plus récente sélection.
     await service.recordSelection(toUserId(user.id), paris);
     const history = await service.list(toUserId(user.id));
@@ -120,6 +134,7 @@ describe('SearchHistoryService (intégration, vraie Postgres via Testcontainers)
 
     for (const city of cities) {
       await service.recordSelection(toUserId(user.id), city);
+      await waitPastTimestampPrecision();
     }
     const history = await service.list(toUserId(user.id));
 
