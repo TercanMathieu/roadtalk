@@ -3,20 +3,23 @@ import {
   type CameraRef,
   LogManager,
   Map,
+  type PressEvent,
+  type PressEventWithFeatures,
   type StyleSpecification,
   type ViewStateChangeEvent,
 } from '@maplibre/maplibre-react-native';
 import type { AddressSuggestionDto } from '@roadtalk/contracts';
 import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
-import type { NativeSyntheticEvent } from 'react-native';
+import type { LayoutChangeEvent, NativeSyntheticEvent } from 'react-native';
 import { View } from 'react-native';
 
 import { useLastKnownPosition } from '../../lib/useLastKnownPosition';
-import { colors, Text } from '../../ui';
+import { colors, spacing, Text } from '../../ui';
+import { withFreshAccessToken } from '../auth/auth.store';
 import { useRoute } from '../routing/useRoute';
 import { AddressSearchBar } from '../search/AddressSearchBar';
-import { DestinationMarker } from './DestinationMarker';
+import { reverseGeocode } from '../search/api';
 import { loadNavigationMapStyle } from './loadMapStyle';
 import {
   DEFAULT_CENTER_COORDINATES,
@@ -27,6 +30,8 @@ import {
 import { styles } from './MapScreen.styles';
 import { RecenterButton } from './RecenterButton';
 import { RouteLine } from './RouteLine';
+import { StopMarkers } from './StopMarkers';
+import { TripSummaryCard } from './TripSummaryCard';
 import { useUserLocationPermission } from './useUserLocationPermission';
 import { VehicleMarker } from './VehicleMarker';
 
@@ -52,14 +57,26 @@ LogManager.setLogLevel('error');
 // selon le cap, contrairement au futur écran de guidage turn-by-turn.
 export function MapScreen(): React.JSX.Element {
   const [mapStyle, setMapStyle] = useState<string | StyleSpecification>(MAP_STYLE_URL);
-  const [destination, setDestination] = useState<AddressSuggestionDto | undefined>(undefined);
+  // Dans l'ordre de visite. La position de l'utilisateur (originRef) sert
+  // toujours de premier point du trajet — elle ne fait jamais partie de cette
+  // liste, qui ne contient que les arrêts choisis.
+  const [stops, setStops] = useState<readonly AddressSuggestionDto[]>([]);
   const [isFollowing, setIsFollowing] = useState(true);
+  // Hauteur réelle de TripSummaryCard, mesurée au rendu : sa taille varie
+  // selon le nombre d'arrêts et son contenu (chargement, erreur, ou les
+  // trois statistiques), donc une valeur fixe aurait soit laissé un vide,
+  // soit chevauché le bouton.
+  const [tripSummaryCardHeight, setTripSummaryCardHeight] = useState(0);
+  // Message de repli uniquement : l'échec concerne un point choisi par appui,
+  // il n'y a pas de recherche en cours à réafficher (C3 — dégradation
+  // explicite à l'écran plutôt qu'un échec silencieux).
+  const [tapStopError, setTapStopError] = useState<string | undefined>(undefined);
   const cameraRef = useRef<CameraRef>(null);
   const permission = useUserLocationPermission();
   // Tenu ici plutôt que dans la barre de recherche : l'identité de la ref est
   // stable, la passer en prop ne provoque aucun rendu supplémentaire.
-  const originRef = useLastKnownPosition(permission === 'granted');
-  const { route, error: routeError } = useRoute(destination, originRef);
+  const { positionRef: originRef, hasFix: hasGpsFix } = useLastKnownPosition(permission === 'granted');
+  const { route, isComputing: isComputingRoute, error: routeError } = useRoute(stops, originRef, hasGpsFix);
 
   useEffect(() => {
     let cancelled = false;
@@ -80,10 +97,26 @@ export function MapScreen(): React.JSX.Element {
     };
   }, []);
 
-  const handleSelectDestination = (suggestion: AddressSuggestionDto): void => {
-    setDestination(suggestion);
+  // Ajoute toujours un arrêt plutôt que de remplacer la destination
+  // existante : un premier choix devient ainsi naturellement le premier
+  // arrêt, sans cas particulier à gérer pour distinguer "première sélection"
+  // et "arrêt supplémentaire".
+  const handleAddStop = (suggestion: AddressSuggestionDto): void => {
+    const lastStop = stops[stops.length - 1];
+    // Même adresse que le dernier arrêt = segment de longueur nulle, sans
+    // intérêt pour un trajet (vérifié auprès de Valhalla : il l'accepte sans
+    // erreur, mais produit une étape à 0 km). Comparé sur les coordonnées,
+    // pas le libellé — deux résultats de recherche au même endroit mais
+    // formulés différemment désignent quand même le même point. Un
+    // aller-retour (A → B → A) reste autorisé : seul le doublon consécutif
+    // est bloqué.
+    if (lastStop?.latitude === suggestion.latitude && lastStop.longitude === suggestion.longitude) {
+      return;
+    }
+
+    setStops((previous) => [...previous, suggestion]);
     // Relâche le suivi : sinon la caméra ramènerait aussitôt la vue sur
-    // l'utilisateur, rendant la destination impossible à regarder.
+    // l'utilisateur, rendant l'arrêt impossible à regarder.
     setIsFollowing(false);
     // Déplacement impératif plutôt qu'une prop contrôlée : la caméra ne doit
     // bouger qu'à la sélection, sinon chaque rendu ramènerait la vue de force
@@ -93,6 +126,32 @@ export function MapScreen(): React.JSX.Element {
       zoom: DEFAULT_ZOOM_LEVEL,
       duration: FLY_TO_DURATION_MS,
     });
+  };
+
+  const handleRemoveStop = (index: number): void => {
+    setStops((previous) => previous.filter((_stop, i) => i !== index));
+  };
+
+  // Un appui simple choisit un point ; un appui sur un marqueur ou la ligne
+  // de trajet renvoie en plus `features`, mais `lngLat` a la même forme dans
+  // les deux cas — aucune distinction nécessaire ici.
+  const handleMapPress = (
+    event: NativeSyntheticEvent<PressEvent | PressEventWithFeatures>,
+  ): void => {
+    const [longitude, latitude] = event.nativeEvent.lngLat;
+    setTapStopError(undefined);
+
+    withFreshAccessToken((accessToken) => reverseGeocode(accessToken, { latitude, longitude }))
+      .then((suggestion) => {
+        handleAddStop(suggestion);
+      })
+      .catch(() => {
+        setTapStopError('Impossible de localiser ce point, réessaie.');
+      });
+  };
+
+  const handleTripSummaryCardLayout = (event: LayoutChangeEvent): void => {
+    setTripSummaryCardHeight(event.nativeEvent.layout.height);
   };
 
   const handleRecenter = (): void => {
@@ -129,6 +188,13 @@ export function MapScreen(): React.JSX.Element {
   };
 
   const followsUser = permission === 'granted' && isFollowing;
+  const showsTripSummary = stops.length > 0 && permission === 'granted';
+  // spacing.lg : la marge basse de TripSummaryCard elle-même (voir son style)
+  // — le bouton doit franchir toute la hauteur de la carte pour arriver à son
+  // sommet, plus un espace pour ne pas coller aux deux.
+  const recenterButtonBottom = showsTripSummary
+    ? spacing.lg + tripSummaryCardHeight + spacing.sm
+    : undefined;
 
   return (
     <View style={styles.container}>
@@ -136,6 +202,7 @@ export function MapScreen(): React.JSX.Element {
         style={styles.map}
         mapStyle={mapStyle}
         onRegionWillChange={handleMapMoveStart}
+        onPress={handleMapPress}
         // Carte verrouillée au nord. Une carte tournée de travers oblige à se
         // réorienter mentalement avant de lire quoi que ce soit — l'inverse de
         // ce qu'on veut d'un coup d'œil en roulant (C2). Le suivi de position
@@ -156,21 +223,34 @@ export function MapScreen(): React.JSX.Element {
           {...(followsUser ? { trackUserLocation: 'default' as const } : {})}
         />
         {permission === 'granted' ? <VehicleMarker /> : null}
-        {/* Avant le marqueur de destination : ordre = ordre de dessin, la
-            ligne doit passer sous l'épingle, pas au-dessus. */}
+        {/* Avant les marqueurs d'arrêt : ordre = ordre de dessin, la ligne
+            doit passer sous les épingles, pas au-dessus. */}
         {route !== undefined ? <RouteLine path={route.path} /> : null}
-        {destination !== undefined ? (
-          <DestinationMarker lngLat={[destination.longitude, destination.latitude]} />
+        {stops.length > 0 ? (
+          <StopMarkers points={stops.map((stop) => ({ latitude: stop.latitude, longitude: stop.longitude }))} />
         ) : null}
       </Map>
 
-      <AddressSearchBar onSelect={handleSelectDestination} originRef={originRef} />
+      <AddressSearchBar onSelect={handleAddStop} originRef={originRef} />
 
       {permission === 'granted' ? (
-        <RecenterButton isFollowing={isFollowing} onPress={handleRecenter} />
+        <RecenterButton
+          isFollowing={isFollowing}
+          onPress={handleRecenter}
+          {...(recenterButtonBottom !== undefined ? { bottom: recenterButtonBottom } : {})}
+        />
       ) : null}
 
-      {permission === 'denied' ? (
+      {/* tapStopError prioritaire : c'est un retour direct sur l'action que
+          l'utilisateur vient de faire, plus pertinent dans l'instant que le
+          rappel, permanent tant que la permission n'est pas accordée. */}
+      {tapStopError !== undefined ? (
+        <View style={styles.permissionBanner}>
+          <Text variant="body" color={colors.textPrimary}>
+            {tapStopError}
+          </Text>
+        </View>
+      ) : permission === 'denied' ? (
         <View style={styles.permissionBanner}>
           <Text variant="body" color={colors.textPrimary}>
             Active la localisation dans les réglages du téléphone pour te situer sur la carte.
@@ -178,12 +258,18 @@ export function MapScreen(): React.JSX.Element {
         </View>
       ) : null}
 
-      {routeError !== undefined ? (
-        <View style={styles.routeErrorBanner}>
-          <Text variant="body" color={colors.textPrimary}>
-            {routeError}
-          </Text>
-        </View>
+      {/* Pas de position, pas d'itinéraire à récapituler : la bannière de
+          permission ci-dessus explique déjà la situation, inutile d'ajouter
+          une carte bloquée sur "Calcul…" qui ne se résoudra jamais. */}
+      {showsTripSummary ? (
+        <TripSummaryCard
+          stops={stops}
+          route={route}
+          isComputing={isComputingRoute}
+          error={routeError}
+          onRemoveStop={handleRemoveStop}
+          onLayout={handleTripSummaryCardLayout}
+        />
       ) : null}
     </View>
   );

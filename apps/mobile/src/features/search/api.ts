@@ -1,4 +1,9 @@
-import { type AddressSearchResultsDto, addressSearchResultsSchema } from '@roadtalk/contracts';
+import {
+  type AddressSearchResultsDto,
+  addressSearchResultsSchema,
+  type AddressSuggestionDto,
+  addressSuggestionSchema,
+} from '@roadtalk/contracts';
 
 import { request } from '../../lib/http';
 import type { LastKnownPosition } from '../../lib/useLastKnownPosition';
@@ -19,4 +24,18 @@ export async function searchAddresses(
   const json = await request('GET', `/search/addresses?${params.toString()}`, { accessToken });
 
   return addressSearchResultsSchema.parse(json);
+}
+
+export async function reverseGeocode(
+  accessToken: string,
+  point: LastKnownPosition,
+): Promise<AddressSuggestionDto> {
+  const params = new URLSearchParams({
+    latitude: String(point.latitude),
+    longitude: String(point.longitude),
+  });
+
+  const json = await request('GET', `/search/reverse-geocode?${params.toString()}`, { accessToken });
+
+  return addressSuggestionSchema.parse(json);
 }

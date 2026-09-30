@@ -4,6 +4,10 @@ import {
   addressSearchQuerySchema,
   type AddressSearchResultsDto,
   addressSearchResultsSchema,
+  type AddressSuggestionDto,
+  addressSuggestionSchema,
+  type ReverseGeocodeQueryDto,
+  reverseGeocodeQuerySchema,
 } from '@roadtalk/contracts';
 
 import { JwtAuthGuard } from '../../infrastructure/auth/jwt-auth.guard';
@@ -32,5 +36,13 @@ export class SearchController {
         : undefined;
 
     return this.searchService.searchAddresses(query.q, origin);
+  }
+
+  @Get('reverse-geocode')
+  @UseInterceptors(new ZodResponseInterceptor(addressSuggestionSchema))
+  async reverseGeocode(
+    @Query(new ZodValidationPipe(reverseGeocodeQuerySchema)) query: ReverseGeocodeQueryDto,
+  ): Promise<AddressSuggestionDto> {
+    return this.searchService.reverseGeocode(query);
   }
 }

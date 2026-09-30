@@ -30,6 +30,13 @@ const photonResponseSchema = z.object({
 
 type PhotonProperties = z.infer<typeof photonFeatureSchema>['properties'];
 
+// Node envoie "User-Agent: node" par défaut — un identifiant générique,
+// filtré par l'instance communautaire de Photon (constaté : HTTP 503 côté
+// nginx, alors que la même requête via curl, identifiée "curl/8.7.1",
+// aboutit). Un User-Agent explicite et descriptif est aussi l'usage attendu
+// pour appeler un service tiers gratuit.
+const USER_AGENT = 'RoadTalk/1.0 (+https://github.com/TercanMathieu/roadtalk)';
+
 // La position de l'utilisateur n'est transmise au géocodeur qu'arrondie :
 // 2 décimales ≈ 1 km, largement suffisant pour départager des villes distantes
 // de plusieurs dizaines de kilomètres, et nettement moins traçable qu'une
@@ -115,10 +122,43 @@ export class PhotonGeocoder {
     });
   }
 
+  // Contrairement à searchAddresses, aucun arrondi ici : la position n'est
+  // pas celle de l'utilisateur servant à biaiser un classement (C4), c'est le
+  // point exact qu'il a choisi (appui sur la carte) — l'arrondir renverrait
+  // potentiellement l'adresse d'un point voisin, pas celle demandée.
+  // `undefined`, pas d'exception : "rien à proximité" est un résultat valide
+  // (appui en pleine forêt, sur l'eau...), pas une panne du géocodeur.
+  async reverseGeocode(point: SearchOrigin): Promise<AddressSuggestionDto | undefined> {
+    const url = new URL('/reverse', env.PHOTON_URL);
+    url.searchParams.set('lat', String(point.latitude));
+    url.searchParams.set('lon', String(point.longitude));
+    url.searchParams.set('lang', 'fr');
+
+    const payload = await this.fetchPayload(url);
+    const [firstFeature] = payload.features;
+    if (firstFeature === undefined) {
+      return undefined;
+    }
+
+    const parsed = photonFeatureSchema.safeParse(firstFeature);
+    if (!parsed.success) {
+      return undefined;
+    }
+
+    const label = buildLabel(parsed.data.properties);
+    if (label === undefined) {
+      return undefined;
+    }
+
+    const [longitude, latitude] = parsed.data.geometry.coordinates;
+
+    return { label, context: buildContext(parsed.data.properties, label), latitude, longitude };
+  }
+
   private async fetchPayload(url: URL): Promise<z.infer<typeof photonResponseSchema>> {
     let response: Response;
     try {
-      response = await fetch(url);
+      response = await fetch(url, { headers: { 'User-Agent': USER_AGENT } });
     } catch (error) {
       // Jamais la requête brute dans les logs : elle peut contenir une adresse
       // que l'utilisateur a saisie (C4).

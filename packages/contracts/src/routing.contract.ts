@@ -2,13 +2,12 @@ import { z } from 'zod';
 
 import { geoPointSchema } from './route.contract';
 
-// Requête de routage à la demande — deux points, pas un itinéraire enregistré
-// (voir routeSchema pour ça). C'est le point de départ de "mettre le chemin
-// sur la map" : origine et destination suffisent pour V1, les étapes
-// intermédiaires viendront avec la création d'itinéraire complète.
+// Requête de routage à la demande — pas un itinéraire enregistré (voir
+// routeSchema pour ça). Séquence ordonnée : le premier point est l'origine
+// (la position de l'utilisateur), chaque point suivant un arrêt à visiter
+// dans cet ordre — au minimum origine + une destination.
 export const routingQuerySchema = z.object({
-  origin: geoPointSchema,
-  destination: geoPointSchema,
+  waypoints: z.array(geoPointSchema).min(2),
 });
 
 export type RoutingQueryDto = z.infer<typeof routingQuerySchema>;

@@ -46,7 +46,7 @@ describe('ValhallaRouter', () => {
       },
     });
 
-    const result = await router.computeRoute(origin, destination);
+    const result = await router.computeRoute([origin, destination]);
 
     expect(result.distanceMeters).toBe(12_500);
     expect(result.durationSeconds).toBe(900);
@@ -65,7 +65,7 @@ describe('ValhallaRouter', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
 
-    await router.computeRoute(origin, destination);
+    await router.computeRoute([origin, destination]);
 
     const [, options] = fetchMock.mock.calls[0] as [URL, RequestInit];
     const body: unknown = JSON.parse(options.body as string);
@@ -75,24 +75,70 @@ describe('ValhallaRouter', () => {
   it('lève ROUTE_NOT_FOUND quand Valhalla renvoie le code interne 442', async () => {
     mockFetchResponse({ error_code: 442, error: 'No path could be found for input' }, false, 400);
 
-    await expectErrorCode(router.computeRoute(origin, destination), ErrorCode.ROUTE_NOT_FOUND);
+    await expectErrorCode(router.computeRoute([origin, destination]), ErrorCode.ROUTE_NOT_FOUND);
   });
 
   it("lève ROUTING_PROVIDER_UNAVAILABLE sur un 400 qui n'est pas le code 442", async () => {
     mockFetchResponse({ error_code: 154, error: 'No costing method found' }, false, 400);
 
-    await expectErrorCode(router.computeRoute(origin, destination), ErrorCode.ROUTING_PROVIDER_UNAVAILABLE);
+    await expectErrorCode(router.computeRoute([origin, destination]), ErrorCode.ROUTING_PROVIDER_UNAVAILABLE);
   });
 
   it('lève ROUTING_PROVIDER_UNAVAILABLE quand le moteur est injoignable', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('ECONNREFUSED')));
 
-    await expectErrorCode(router.computeRoute(origin, destination), ErrorCode.ROUTING_PROVIDER_UNAVAILABLE);
+    await expectErrorCode(router.computeRoute([origin, destination]), ErrorCode.ROUTING_PROVIDER_UNAVAILABLE);
   });
 
   it('lève ROUTING_PROVIDER_UNAVAILABLE sur une réponse 200 non conforme', async () => {
     mockFetchResponse({ trip: { summary: { length: 1 } } });
 
-    await expectErrorCode(router.computeRoute(origin, destination), ErrorCode.ROUTING_PROVIDER_UNAVAILABLE);
+    await expectErrorCode(router.computeRoute([origin, destination]), ErrorCode.ROUTING_PROVIDER_UNAVAILABLE);
+  });
+
+  it('envoie un arrêt intermédiaire comme point "break" à Valhalla', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () =>
+        Promise.resolve({
+          trip: {
+            summary: { length: 1, time: 1 },
+            legs: [{ shape: 'e~epoA|jfpOiDaK' }, { shape: 'e~epoA|jfpOiDaK' }],
+          },
+        }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const stop: GeoPointDto = { latitude: 48.8115, longitude: 2.4392 };
+    await router.computeRoute([origin, stop, destination]);
+
+    const [, options] = fetchMock.mock.calls[0] as [URL, RequestInit];
+    const body: unknown = JSON.parse(options.body as string);
+    expect(body).toMatchObject({
+      locations: [
+        { lat: origin.latitude, lon: origin.longitude, type: 'break' },
+        { lat: stop.latitude, lon: stop.longitude, type: 'break' },
+        { lat: destination.latitude, lon: destination.longitude, type: 'break' },
+      ],
+    });
+  });
+
+  it('assemble les legs de plusieurs arrêts en un seul tracé continu', async () => {
+    // Même vecteur officiel réutilisé deux fois : suffit à prouver que le
+    // routeur assemble bien N legs plutôt que de ne lire que legs[0] — la
+    // suppression du point de jonction en double est testée précisément
+    // dans merge-leg-paths.spec.ts, avec des points de contrôle exacts.
+    mockFetchResponse({
+      trip: {
+        summary: { length: 2, time: 200 },
+        legs: [{ shape: 'e~epoA|jfpOiDaK' }, { shape: 'e~epoA|jfpOiDaK' }],
+      },
+    });
+
+    const result = await router.computeRoute([origin, { latitude: 48.8115, longitude: 2.4392 }, destination]);
+
+    // 2 points par leg, 2 legs, un point de jonction retiré : 3, pas 4.
+    expect(result.path).toHaveLength(3);
   });
 });

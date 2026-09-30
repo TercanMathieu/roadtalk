@@ -5,12 +5,11 @@ import { request } from '../../lib/http';
 
 export async function computeRoute(
   accessToken: string,
-  origin: GeoPointDto,
-  destination: GeoPointDto,
+  waypoints: readonly GeoPointDto[],
 ): Promise<RouteGeometryDto> {
   const json = await request('POST', '/routing', {
     accessToken,
-    body: { origin, destination },
+    body: { waypoints },
   });
 
   return routeGeometrySchema.parse(json);

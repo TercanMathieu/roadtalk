@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { env } from '../../infrastructure/config/env';
 import { AppException } from '../../infrastructure/errors/app-exception';
 import { decodePolyline6 } from './decode-polyline6';
+import { mergeLegPaths } from './merge-leg-paths';
 
 // "motorcycle", pas "auto" : coûts de circulation différents (ex. accès aux
 // voies interdites aux voitures dans certains pays), vérifié dans les
@@ -52,14 +53,16 @@ const KM_TO_METERS = 1000;
 export class ValhallaRouter {
   private readonly logger = new Logger(ValhallaRouter.name);
 
-  async computeRoute(origin: GeoPointDto, destination: GeoPointDto): Promise<RouteGeometryDto> {
+  // `waypoints` : au moins origine + une destination. Chaque point
+  // intermédiaire (un arrêt) devient une étape "break" pour Valhalla, qui
+  // renvoie alors un "leg" par segment plutôt qu'un seul trajet continu.
+  async computeRoute(waypoints: readonly GeoPointDto[]): Promise<RouteGeometryDto> {
     const url = new URL('/route', env.VALHALLA_URL);
 
-    const response = await this.fetchRoute(url, origin, destination);
+    const response = await this.fetchRoute(url, waypoints);
     const trip = response.trip;
 
-    const firstLeg = trip.legs[0];
-    if (firstLeg === undefined) {
+    if (trip.legs.length === 0) {
       // Défendu par le .min(1) du schéma, mais noUncheckedIndexedAccess
       // oblige à le vérifier explicitement.
       throw new AppException(ErrorCode.ROUTING_PROVIDER_UNAVAILABLE);
@@ -68,14 +71,13 @@ export class ValhallaRouter {
     return {
       distanceMeters: trip.summary.length * KM_TO_METERS,
       durationSeconds: trip.summary.time,
-      path: decodePolyline6(firstLeg.shape),
+      path: mergeLegPaths(trip.legs.map((leg) => decodePolyline6(leg.shape))),
     };
   }
 
   private async fetchRoute(
     url: URL,
-    origin: GeoPointDto,
-    destination: GeoPointDto,
+    waypoints: readonly GeoPointDto[],
   ): Promise<z.infer<typeof valhallaRouteResponseSchema>> {
     let response: Response;
     try {
@@ -83,10 +85,7 @@ export class ValhallaRouter {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          locations: [
-            { lat: origin.latitude, lon: origin.longitude, type: 'break' },
-            { lat: destination.latitude, lon: destination.longitude, type: 'break' },
-          ],
+          locations: waypoints.map((point) => ({ lat: point.latitude, lon: point.longitude, type: 'break' })),
           costing: COSTING_PROFILE,
         }),
       });

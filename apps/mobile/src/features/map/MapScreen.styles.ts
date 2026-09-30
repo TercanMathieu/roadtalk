@@ -21,15 +21,4 @@ export const styles = StyleSheet.create({
     borderRadius: spacing.sm,
     padding: spacing.md,
   },
-  routeErrorBanner: {
-    position: 'absolute',
-    bottom: spacing.lg,
-    left: spacing.md,
-    right: spacing.md,
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderWidth: 1,
-    borderRadius: spacing.sm,
-    padding: spacing.md,
-  },
 });
