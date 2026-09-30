@@ -2,6 +2,8 @@ import { type GeolocationPosition, LocationManager, useCurrentPosition } from '@
 import { type Degrees, degrees, metersPerSecond } from '@roadtalk/domain-shared';
 import { useEffect, useState } from 'react';
 
+import { useDeviceHeading } from './useDeviceHeading';
+
 // Règle physique du projet : le cap (course) n'est fiable qu'au-dessus
 // d'environ 5 km/h — en dessous, le figer plutôt que le laisser tourner
 // aléatoirement à l'arrêt (bruit GPS sur `heading`).
@@ -38,7 +40,14 @@ export function useVehiclePosition(): VehiclePosition | undefined {
   // natif — la dernière position connue du système, en cache, quasi
   // instantanée — plutôt que d'attendre un nouveau fix live.
   const [lastKnownPosition, setLastKnownPosition] = useState<GeolocationPosition | undefined>(undefined);
-  const [headingDeg, setHeadingDeg] = useState<Degrees | undefined>(undefined);
+  // Cap confirmé par le déplacement réel (voir plus bas) — jamais réinitialisé
+  // à l'arrêt, seulement remplacé par une nouvelle mesure fiable.
+  const [courseHeadingDeg, setCourseHeadingDeg] = useState<Degrees | undefined>(undefined);
+  // Cap du téléphone (magnétomètre), utilisé à l'arrêt : sur cet écran de
+  // préparation, l'utilisateur ne roule pas encore, `course` ne devient donc
+  // quasiment jamais fiable — sans ce repli, le repère resterait figé plein
+  // nord en permanence plutôt que de suivre l'orientation du téléphone.
+  const compassHeadingDeg = useDeviceHeading();
 
   useEffect(() => {
     if (currentPosition) {
@@ -86,13 +95,24 @@ export function useVehiclePosition(): VehiclePosition | undefined {
 
     const { speed, heading } = position.coords;
     if (speed !== null && heading !== null && speed >= MIN_SPEED_FOR_HEADING_MPS) {
-      setHeadingDeg(degrees(heading));
+      setCourseHeadingDeg(degrees(heading));
     }
   }, [position]);
 
   if (!position) {
     return undefined;
   }
+
+  // Priorité au cap de déplacement seulement s'il est actuellement fiable
+  // (vitesse suffisante maintenant, pas juste au dernier point qui l'a
+  // établi) — sinon le compas, plus pertinent à l'arrêt ; et si aucun des
+  // deux n'est encore disponible, le dernier cap de déplacement connu plutôt
+  // que rien.
+  const { speed } = position.coords;
+  const isMovingFastEnough = speed !== null && speed >= MIN_SPEED_FOR_HEADING_MPS;
+  const headingDeg = isMovingFastEnough
+    ? courseHeadingDeg
+    : (compassHeadingDeg ?? courseHeadingDeg);
 
   return {
     lngLat: [position.coords.longitude, position.coords.latitude],
