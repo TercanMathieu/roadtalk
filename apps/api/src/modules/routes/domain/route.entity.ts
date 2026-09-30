@@ -1,5 +1,5 @@
 import type {
-  Degrees,
+  GeoPoint,
   Meters,
   Result,
   RouteId,
@@ -7,12 +7,7 @@ import type {
   TimestampMs,
   UserId,
 } from '@roadtalk/domain-shared';
-import { err, ok } from '@roadtalk/domain-shared';
-
-export interface GeoPoint {
-  readonly latitude: Degrees;
-  readonly longitude: Degrees;
-}
+import { err, isValidGeoPoint, ok } from '@roadtalk/domain-shared';
 
 export interface RoutingOptions {
   readonly avoidHighways: boolean;
@@ -43,19 +38,6 @@ export type RouteValidationError =
   | { readonly type: 'invalid_coordinates'; readonly point: GeoPoint };
 
 const MIN_WAYPOINTS = 2;
-const MIN_LATITUDE = -90;
-const MAX_LATITUDE = 90;
-const MIN_LONGITUDE = -180;
-const MAX_LONGITUDE = 180;
-
-function isValidGeoPoint(point: GeoPoint): boolean {
-  return (
-    point.latitude >= MIN_LATITUDE &&
-    point.latitude <= MAX_LATITUDE &&
-    point.longitude >= MIN_LONGITUDE &&
-    point.longitude <= MAX_LONGITUDE
-  );
-}
 
 export function createRoute(params: {
   readonly id: RouteId;
