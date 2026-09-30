@@ -37,6 +37,41 @@ services:
     depends_on:
       - redis
 
+  # Routage/guidage auto-hébergé (C5). L'extrait OSM téléchargé et les tuiles
+  # construites vivent dans valhalla_data — premier démarrage lent (construction
+  # du graphe : plusieurs heures pour la France entière), les suivants
+  # instantanés (tuiles déjà là).
+  # France entière (~5,9 Go), via le miroir openstreetmap.fr —
+  # download.geofabrik.de renvoie une boucle de redirection sur ses .osm.pbf
+  # depuis le 30/09/2026, panne côté serveur confirmée sur plusieurs fichiers,
+  # pas un choix. Repasser sur Geofabrik quand c'est corrigé.
+  valhalla:
+    image: ghcr.io/gis-ops/docker-valhalla/valhalla:latest
+    # Défaut de l'image : 500 km pour le profil "motorcycle" (contre 5000 km
+    # pour "auto" — aucune raison physique, juste un défaut générique côté
+    # Valhalla). L'image n'expose pas ce réglage en variable d'environnement
+    # (voir entrypoint.sh) : c'est notre propre entrypoint qui applique
+    # MOTORCYCLE_MAX_DISTANCE_METERS ci-dessous.
+    entrypoint: /valhalla-entrypoint/entrypoint.sh
+    # CMD de l'image (`build_tiles`) explicite : Compose ne le préserve pas
+    # automatiquement quand `entrypoint` est surchargé (vérifié — sans cette
+    # ligne, l'entrypoint reçoit un argument vide et l'image refuse de
+    # démarrer, "Unrecognized CMD: ''").
+    command: build_tiles
+    ports:
+      - '8002:8002'
+    volumes:
+      - valhalla_data:/custom_files
+      - ./valhalla/entrypoint.sh:/valhalla-entrypoint/entrypoint.sh:ro
+    environment:
+      tile_urls: https://download.openstreetmap.fr/extracts/europe/france.osm.pbf
+      use_tiles_ignore_pbf: 'True'
+      build_elevation: 'False'
+      build_admins: 'False'
+      build_time_zones: 'False'
+      MOTORCYCLE_MAX_DISTANCE_METERS: '2000000'
+
 volumes:
   postgres_data:
   redisinsight_data:
+  valhalla_data:
