@@ -49,6 +49,13 @@ const VALHALLA_ERROR_CODE_NO_PATH_FOUND = 442;
 
 const KM_TO_METERS = 1000;
 
+// 0 plutôt qu'une valeur intermédiaire : vérifié contre le moteur réel
+// (Paris–Lyon, 466 km/14353 s sans l'option contre 478 km/24335 s avec) —
+// une valeur > 0 laisserait Valhalla reprendre l'autoroute dès qu'elle
+// raccourcit suffisamment le trajet, ce qui contredit l'intention explicite
+// de l'utilisateur d'éviter complètement les autoroutes et voies rapides.
+const USE_HIGHWAYS_AVOIDED = 0;
+
 @Injectable()
 export class ValhallaRouter {
   private readonly logger = new Logger(ValhallaRouter.name);
@@ -56,10 +63,13 @@ export class ValhallaRouter {
   // `waypoints` : au moins origine + une destination. Chaque point
   // intermédiaire (un arrêt) devient une étape "break" pour Valhalla, qui
   // renvoie alors un "leg" par segment plutôt qu'un seul trajet continu.
-  async computeRoute(waypoints: readonly GeoPointDto[]): Promise<RouteGeometryDto> {
+  async computeRoute(
+    waypoints: readonly GeoPointDto[],
+    avoidHighways?: boolean,
+  ): Promise<RouteGeometryDto> {
     const url = new URL('/route', env.VALHALLA_URL);
 
-    const response = await this.fetchRoute(url, waypoints);
+    const response = await this.fetchRoute(url, waypoints, avoidHighways);
     const trip = response.trip;
 
     if (trip.legs.length === 0) {
@@ -78,6 +88,7 @@ export class ValhallaRouter {
   private async fetchRoute(
     url: URL,
     waypoints: readonly GeoPointDto[],
+    avoidHighways: boolean | undefined,
   ): Promise<z.infer<typeof valhallaRouteResponseSchema>> {
     let response: Response;
     try {
@@ -87,6 +98,9 @@ export class ValhallaRouter {
         body: JSON.stringify({
           locations: waypoints.map((point) => ({ lat: point.latitude, lon: point.longitude, type: 'break' })),
           costing: COSTING_PROFILE,
+          ...(avoidHighways === true
+            ? { costing_options: { motorcycle: { use_highways: USE_HIGHWAYS_AVOIDED } } }
+            : {}),
         }),
       });
     } catch (error) {

@@ -30,10 +30,15 @@ interface RouteState {
 // jamais quand le fix finit par arriver — la ref changeant silencieusement,
 // sans re-rendu. `hasOrigin` est le seul signal qui bascule alors de `false`
 // à `true` et relance ce calcul.
+//
+// `avoidHighways` en dépendance aussi : changer ce réglage en cours de route
+// (ex. depuis les Réglages pendant qu'un itinéraire est déjà affiché) doit
+// redemander un tracé au moteur de routage avec le nouveau paramètre.
 export function useRoute(
   stops: readonly AddressSuggestionDto[],
   originRef: RefObject<LastKnownPosition | undefined>,
   hasOrigin: boolean,
+  avoidHighways: boolean,
 ): RouteState {
   const [route, setRoute] = useState<RouteGeometryDto | undefined>(undefined);
   const [isComputing, setIsComputing] = useState(false);
@@ -70,7 +75,7 @@ export function useRoute(
       ...stops.map((stop) => ({ latitude: stop.latitude, longitude: stop.longitude })),
     ];
 
-    withFreshAccessToken((accessToken) => computeRoute(accessToken, waypoints))
+    withFreshAccessToken((accessToken) => computeRoute(accessToken, waypoints, avoidHighways))
       .then((result) => {
         if (!cancelled) {
           setRoute(result);
@@ -91,7 +96,7 @@ export function useRoute(
     return () => {
       cancelled = true;
     };
-  }, [stopCoordinatesKey, originRef, hasOrigin]);
+  }, [stopCoordinatesKey, originRef, hasOrigin, avoidHighways]);
 
   return { route, isComputing, error };
 }

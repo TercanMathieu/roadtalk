@@ -10,6 +10,8 @@ export function SettingsScreen(): React.JSX.Element {
   const setDistanceUnit = useSettingsStore((state) => state.setDistanceUnit);
   const voiceEnabled = useSettingsStore((state) => state.voiceEnabled);
   const setVoiceEnabled = useSettingsStore((state) => state.setVoiceEnabled);
+  const avoidHighways = useSettingsStore((state) => state.avoidHighways);
+  const setAvoidHighways = useSettingsStore((state) => state.setAvoidHighways);
 
   return (
     <View style={styles.container}>
@@ -49,6 +51,22 @@ export function SettingsScreen(): React.JSX.Element {
           <Switch
             value={voiceEnabled}
             onValueChange={setVoiceEnabled}
+            trackColor={{ false: colors.border, true: colors.accent }}
+            thumbColor={colors.textPrimary}
+            style={styles.voiceSwitch}
+          />
+        </View>
+      </View>
+
+      <View style={styles.section}>
+        <Text variant="label" color={colors.textSecondary} style={styles.sectionLabel}>
+          Itinéraire
+        </Text>
+        <View style={styles.voiceRow}>
+          <Text variant="body">Éviter les autoroutes</Text>
+          <Switch
+            value={avoidHighways}
+            onValueChange={setAvoidHighways}
             trackColor={{ false: colors.border, true: colors.accent }}
             thumbColor={colors.textPrimary}
             style={styles.voiceSwitch}

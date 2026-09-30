@@ -5,8 +5,10 @@ export type DistanceUnit = 'km' | 'mi';
 interface SettingsState {
   readonly distanceUnit: DistanceUnit;
   readonly voiceEnabled: boolean;
+  readonly avoidHighways: boolean;
   readonly setDistanceUnit: (unit: DistanceUnit) => void;
   readonly setVoiceEnabled: (enabled: boolean) => void;
+  readonly setAvoidHighways: (enabled: boolean) => void;
 }
 
 // En mémoire pour l'instant : react-native-mmkv (décidé pour la persistance
@@ -16,10 +18,14 @@ interface SettingsState {
 export const useSettingsStore = create<SettingsState>()((set) => ({
   distanceUnit: 'km',
   voiceEnabled: true,
+  avoidHighways: false,
   setDistanceUnit: (distanceUnit) => {
     set({ distanceUnit });
   },
   setVoiceEnabled: (voiceEnabled) => {
     set({ voiceEnabled });
+  },
+  setAvoidHighways: (avoidHighways) => {
+    set({ avoidHighways });
   },
 }));
