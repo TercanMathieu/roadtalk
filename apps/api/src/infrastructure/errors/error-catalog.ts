@@ -52,6 +52,17 @@ export const ERROR_CATALOG: Record<ErrorCode, ErrorDefinition> = {
     status: HttpStatus.BAD_GATEWAY,
     message: 'Service de recherche d\'adresse momentanément indisponible',
   },
+  [ErrorCode.ROUTING_PROVIDER_UNAVAILABLE]: {
+    status: HttpStatus.BAD_GATEWAY,
+    message: 'Service de calcul d\'itinéraire momentanément indisponible',
+  },
+  [ErrorCode.ROUTE_NOT_FOUND]: {
+    // 422 et non 502/404 : la requête est valide, le service a répondu, mais
+    // aucun chemin routier n'existe entre les deux points (ex. destination
+    // isolée). Distinct d'une panne du moteur de routage.
+    status: HttpStatus.UNPROCESSABLE_ENTITY,
+    message: 'Aucun itinéraire trouvé entre ces deux points',
+  },
   [ErrorCode.VALIDATION_ERROR]: {
     status: HttpStatus.BAD_REQUEST,
     message: 'Requête invalide',

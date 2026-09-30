@@ -22,6 +22,10 @@ const envSchema = z.object({
   // communauté OSM : pratique en dev, à remplacer par une instance
   // auto-hébergée avant toute mise en production (C5).
   PHOTON_URL: z.string().url().default('https://photon.komoot.io'),
+  // Routage/guidage. Auto-hébergé dès le dev (infra/docker/docker-compose.yml)
+  // — contrairement à Photon, Valhalla n'a pas d'instance publique gratuite
+  // fiable, donc pas de défaut vers un tiers ici.
+  VALHALLA_URL: z.string().url().default('http://localhost:8002'),
 });
 
 // Échoue vite et clairement au démarrage si une variable manque, plutôt que

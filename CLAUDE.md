@@ -203,13 +203,15 @@ pas avant.
 Implémenté : NestJS + Fastify, Prisma + PostgreSQL/PostGIS (Docker), Zod (validation +
 contrats partagés), Expo Router + React Native, pnpm workspaces + Turborepo, Vitest +
 Testcontainers (vraie Postgres pour l'intégration, jamais de mock d'infra), ESLint
-(`typescript-eslint` strict-type-checked + `eslint-plugin-boundaries`) + Prettier.
+(`typescript-eslint` strict-type-checked + `eslint-plugin-boundaries`) + Prettier,
+Valhalla auto-hébergé (routage moto — `POST /routing`, `costing: "motorcycle"`,
+`infra/docker/docker-compose.yml`, extrait OSM Île-de-France en dev).
 
 Décidé mais pas encore construit (ne pas improviser autre chose quand ces sessions
-arrivent) : Redis + BullMQ (jobs), Valhalla auto-hébergé (routing/map-matching), Photon
-auto-hébergé (géocodage), S3-compatible/R2 (médias), OAuth Apple/Google → JWT EdDSA +
-refresh token opaque rotatif (pas de mot de passe), MapLibre GL Native + tuiles MapTiler,
-EAS Build, Sentry + OpenTelemetry → Grafana Cloud.
+arrivent) : Redis + BullMQ (jobs), Photon auto-hébergé (géocodage — pointe encore sur
+l'instance communautaire en dev), S3-compatible/R2 (médias), OAuth Apple/Google → JWT
+EdDSA + refresh token opaque rotatif (pas de mot de passe), MapLibre GL Native + tuiles
+MapTiler, EAS Build, Sentry + OpenTelemetry → Grafana Cloud.
 
 Explicitement écarté, avec raison : Google Maps SDK/Directions (coût + CGU), Mapbox
 (facturation MAU imprévisible), Auth0/Clerk (coût + dépendance sur la donnée la plus

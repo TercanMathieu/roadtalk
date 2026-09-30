@@ -37,6 +37,28 @@ services:
     depends_on:
       - redis
 
+  # Routage/guidage auto-hébergé (C5). L'extrait OSM téléchargé et les tuiles
+  # construites vivent dans valhalla_data — premier démarrage lent (construction
+  # du graphe), les suivants instantanés (tuiles déjà là).
+  # Extrait de dev : Île-de-France (~390 Mo), via le miroir openstreetmap.fr —
+  # download.geofabrik.de renvoie une boucle de redirection sur ses .osm.pbf
+  # depuis le 30/09/2026, panne côté serveur, pas un choix. Repasser sur
+  # Geofabrik quand c'est corrigé. Pour la prod, remplacer tile_urls par un
+  # extrait couvrant la zone réelle d'usage (ex. France entière).
+  valhalla:
+    image: ghcr.io/gis-ops/docker-valhalla/valhalla:latest
+    ports:
+      - '8002:8002'
+    volumes:
+      - valhalla_data:/custom_files
+    environment:
+      tile_urls: https://download.openstreetmap.fr/extracts/europe/france/ile_de_france.osm.pbf
+      use_tiles_ignore_pbf: 'True'
+      build_elevation: 'False'
+      build_admins: 'False'
+      build_time_zones: 'False'
+
 volumes:
   postgres_data:
   redisinsight_data:
+  valhalla_data:
