@@ -4,7 +4,6 @@ import {
   LogManager,
   Map,
   type PressEvent,
-  type PressEventWithFeatures,
   type StyleSpecification,
   type ViewStateChangeEvent,
 } from '@maplibre/maplibre-react-native';
@@ -37,6 +36,11 @@ import { VehicleMarker } from './VehicleMarker';
 
 const FLY_TO_DURATION_MS = 1200;
 
+// Même arrondi que le libellé de repli du backend (search.service.ts) : un
+// arrêt ajouté par appui long s'affiche avec ce libellé immédiatement, avant
+// même de savoir si le géocodage inverse trouvera un nom de lieu.
+const PLACEHOLDER_LABEL_DECIMALS = 4;
+
 // Hissé hors du composant : une identité stable évite de re-notifier la vue
 // native à chaque rendu pour une valeur qui, elle, ne change jamais.
 const INITIAL_VIEW_STATE = {
@@ -57,6 +61,16 @@ LogManager.setLogLevel('error');
 // selon le cap, contrairement au futur écran de guidage turn-by-turn.
 export function MapScreen(): React.JSX.Element {
   const [mapStyle, setMapStyle] = useState<string | StyleSpecification>(MAP_STYLE_URL);
+  // Vrai une fois que `mapStyle` a atteint sa valeur finale (succès ou échec
+  // du chargement filtré) — jamais avant. Un remplacement de style en cours
+  // de vie du composant recharge le style natif en entier
+  // (MLRNMapView.setReactMapStyle : removeAllSourcesFromMap puis
+  // addAllSourcesToMap) ; une image enregistrée via <Images> avant ce
+  // remplacement (VehicleMarker) n'est pas garantie de survivre au
+  // rechargement. Retarder le montage des calques custom jusqu'à ce que le
+  // style ne bouge plus plutôt que de compter sur une éventuelle
+  // récupération native après coup.
+  const [isStyleReady, setIsStyleReady] = useState(false);
   // Dans l'ordre de visite. La position de l'utilisateur (originRef) sert
   // toujours de premier point du trajet — elle ne fait jamais partie de cette
   // liste, qui ne contient que les arrêts choisis.
@@ -67,10 +81,6 @@ export function MapScreen(): React.JSX.Element {
   // trois statistiques), donc une valeur fixe aurait soit laissé un vide,
   // soit chevauché le bouton.
   const [tripSummaryCardHeight, setTripSummaryCardHeight] = useState(0);
-  // Message de repli uniquement : l'échec concerne un point choisi par appui,
-  // il n'y a pas de recherche en cours à réafficher (C3 — dégradation
-  // explicite à l'écran plutôt qu'un échec silencieux).
-  const [tapStopError, setTapStopError] = useState<string | undefined>(undefined);
   const cameraRef = useRef<CameraRef>(null);
   const permission = useUserLocationPermission();
   // Tenu ici plutôt que dans la barre de recherche : l'identité de la ref est
@@ -90,6 +100,12 @@ export function MapScreen(): React.JSX.Element {
       .catch(() => {
         // Le style brut (MAP_STYLE_URL) reste affiché en repli — carte
         // fonctionnelle mais avec les POI, plutôt qu'un écran vide.
+      })
+      .finally(() => {
+        // Succès ou échec : `mapStyle` ne changera plus après ça.
+        if (!cancelled) {
+          setIsStyleReady(true);
+        }
       });
 
     return () => {
@@ -132,21 +148,44 @@ export function MapScreen(): React.JSX.Element {
     setStops((previous) => previous.filter((_stop, i) => i !== index));
   };
 
-  // Un appui simple choisit un point ; un appui sur un marqueur ou la ligne
-  // de trajet renvoie en plus `features`, mais `lngLat` a la même forme dans
-  // les deux cas — aucune distinction nécessaire ici.
-  const handleMapPress = (
-    event: NativeSyntheticEvent<PressEvent | PressEventWithFeatures>,
-  ): void => {
+  // Appui long plutôt qu'un simple tap : un tap seul reste disponible pour
+  // interagir avec la carte (sélectionner un marqueur, etc.) sans risquer
+  // d'ajouter un arrêt par mégarde en regardant simplement la carte. Un
+  // double-tap avait été tenté d'abord, mais MapLibre reconnaît le geste en
+  // interne pour son propre zoom au double-tap avant que `onPress` ne soit
+  // jamais appelé — même moteur désactivé, le geste ne remonte pas. L'appui
+  // long est un geste natif dédié, sans ce conflit.
+  //
+  // L'arrêt est ajouté tout de suite avec un libellé de repli (coordonnées) :
+  // le point et le récapitulatif apparaissent sans attendre le géocodage
+  // inverse, qui n'enrichit ensuite que le libellé affiché — jamais
+  // nécessaire au calcul de l'itinéraire, qui n'utilise que les coordonnées
+  // (voir useRoute, qui ne relance pas le calcul pour cette mise à jour).
+  const handleMapLongPress = (event: NativeSyntheticEvent<PressEvent>): void => {
     const [longitude, latitude] = event.nativeEvent.lngLat;
-    setTapStopError(undefined);
+
+    handleAddStop({
+      label: `${latitude.toFixed(PLACEHOLDER_LABEL_DECIMALS)}, ${longitude.toFixed(PLACEHOLDER_LABEL_DECIMALS)}`,
+      context: null,
+      latitude,
+      longitude,
+    });
 
     withFreshAccessToken((accessToken) => reverseGeocode(accessToken, { latitude, longitude }))
       .then((suggestion) => {
-        handleAddStop(suggestion);
+        // Retrouvé par les coordonnées exactes de l'appui (pas celles de
+        // `suggestion`, potentiellement celles d'un lieu voisin si Photon a
+        // trouvé une correspondance) : c'est cet arrêt-là qu'on enrichit.
+        setStops((previous) =>
+          previous.map((stop) =>
+            stop.latitude === latitude && stop.longitude === longitude ? suggestion : stop,
+          ),
+        );
       })
       .catch(() => {
-        setTapStopError('Impossible de localiser ce point, réessaie.');
+        // Le libellé de repli reste affiché — même convention que le repli
+        // déjà appliqué côté backend quand Photon ne trouve rien : un échec
+        // du géocodage inverse n'empêche pas l'arrêt d'exister.
       });
   };
 
@@ -202,7 +241,7 @@ export function MapScreen(): React.JSX.Element {
         style={styles.map}
         mapStyle={mapStyle}
         onRegionWillChange={handleMapMoveStart}
-        onPress={handleMapPress}
+        onLongPress={handleMapLongPress}
         // Carte verrouillée au nord. Une carte tournée de travers oblige à se
         // réorienter mentalement avant de lire quoi que ce soit — l'inverse de
         // ce qu'on veut d'un coup d'œil en roulant (C2). Le suivi de position
@@ -222,7 +261,7 @@ export function MapScreen(): React.JSX.Element {
           pitch={DEFAULT_PITCH_DEGREES}
           {...(followsUser ? { trackUserLocation: 'default' as const } : {})}
         />
-        {permission === 'granted' ? <VehicleMarker /> : null}
+        {permission === 'granted' && isStyleReady ? <VehicleMarker /> : null}
         {/* Avant les marqueurs d'arrêt : ordre = ordre de dessin, la ligne
             doit passer sous les épingles, pas au-dessus. */}
         {route !== undefined ? <RouteLine path={route.path} /> : null}
@@ -241,16 +280,7 @@ export function MapScreen(): React.JSX.Element {
         />
       ) : null}
 
-      {/* tapStopError prioritaire : c'est un retour direct sur l'action que
-          l'utilisateur vient de faire, plus pertinent dans l'instant que le
-          rappel, permanent tant que la permission n'est pas accordée. */}
-      {tapStopError !== undefined ? (
-        <View style={styles.permissionBanner}>
-          <Text variant="body" color={colors.textPrimary}>
-            {tapStopError}
-          </Text>
-        </View>
-      ) : permission === 'denied' ? (
+      {permission === 'denied' ? (
         <View style={styles.permissionBanner}>
           <Text variant="body" color={colors.textPrimary}>
             Active la localisation dans les réglages du téléphone pour te situer sur la carte.
