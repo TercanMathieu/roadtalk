@@ -14,6 +14,7 @@ import { View } from 'react-native';
 
 import { useLastKnownPosition } from '../../lib/useLastKnownPosition';
 import { colors, Text } from '../../ui';
+import { useRoute } from '../routing/useRoute';
 import { AddressSearchBar } from '../search/AddressSearchBar';
 import { DestinationMarker } from './DestinationMarker';
 import { loadNavigationMapStyle } from './loadMapStyle';
@@ -25,6 +26,7 @@ import {
 } from './map.config';
 import { styles } from './MapScreen.styles';
 import { RecenterButton } from './RecenterButton';
+import { RouteLine } from './RouteLine';
 import { useUserLocationPermission } from './useUserLocationPermission';
 import { VehicleMarker } from './VehicleMarker';
 
@@ -57,6 +59,7 @@ export function MapScreen(): React.JSX.Element {
   // Tenu ici plutôt que dans la barre de recherche : l'identité de la ref est
   // stable, la passer en prop ne provoque aucun rendu supplémentaire.
   const originRef = useLastKnownPosition(permission === 'granted');
+  const { route, error: routeError } = useRoute(destination, originRef);
 
   useEffect(() => {
     let cancelled = false;
@@ -153,6 +156,9 @@ export function MapScreen(): React.JSX.Element {
           {...(followsUser ? { trackUserLocation: 'default' as const } : {})}
         />
         {permission === 'granted' ? <VehicleMarker /> : null}
+        {/* Avant le marqueur de destination : ordre = ordre de dessin, la
+            ligne doit passer sous l'épingle, pas au-dessus. */}
+        {route !== undefined ? <RouteLine path={route.path} /> : null}
         {destination !== undefined ? (
           <DestinationMarker lngLat={[destination.longitude, destination.latitude]} />
         ) : null}
@@ -168,6 +174,14 @@ export function MapScreen(): React.JSX.Element {
         <View style={styles.permissionBanner}>
           <Text variant="body" color={colors.textPrimary}>
             Active la localisation dans les réglages du téléphone pour te situer sur la carte.
+          </Text>
+        </View>
+      ) : null}
+
+      {routeError !== undefined ? (
+        <View style={styles.routeErrorBanner}>
+          <Text variant="body" color={colors.textPrimary}>
+            {routeError}
           </Text>
         </View>
       ) : null}
