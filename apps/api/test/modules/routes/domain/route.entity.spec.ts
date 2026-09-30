@@ -2,6 +2,7 @@ import {
   createRouteId,
   createUserId,
   degrees,
+  type GeoPoint,
   meters,
   seconds,
   timestampMs,
@@ -10,7 +11,6 @@ import { describe, expect, it } from 'vitest';
 
 import {
   createRoute,
-  type GeoPoint,
   withComputedMetrics,
 } from '../../../../src/modules/routes/domain/route.entity';
 
