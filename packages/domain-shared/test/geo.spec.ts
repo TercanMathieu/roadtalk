@@ -13,7 +13,7 @@ describe('distanceBetweenMeters', () => {
     expect(distanceBetweenMeters(point(48.8566, 2.3522), point(48.8566, 2.3522))).toBe(0);
   });
 
-  // Distance orthodromique Paris–Lyon, ~392 km. Tolérance 0,5 % : c'est l'écart
+  // Distance orthodromique Paris–Lyon, ~392 km. Tolérance 0,4 % : c'est l'écart
   // admis du modèle sphérique face à l'ellipsoïde WGS84.
   it('mesure une longue distance connue', () => {
     const paris = point(48.8566, 2.3522);
