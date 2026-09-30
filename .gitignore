@@ -20,3 +20,6 @@ apps/mobile/android/
 
 # Notes de décision internes — gardées en local, jamais publiées.
 docs/adr/
+
+# Backlog produit — notes internes, gardées en local.
+docs/backlog.md
