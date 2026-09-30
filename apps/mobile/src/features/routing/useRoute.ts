@@ -11,19 +11,25 @@ interface RouteState {
   readonly error: string | undefined;
 }
 
-// Recalcule l'itinéraire à chaque changement de la liste d'arrêts, en lisant
-// la position au moment de l'appel (`originRef.current`) plutôt qu'en
+// Recalcule l'itinéraire à chaque changement des *coordonnées* des arrêts, en
+// lisant la position au moment de l'appel (`originRef.current`) plutôt qu'en
 // dépendance : un point GPS reçu entre-temps ne doit pas redéclencher le
-// calcul, seul un ajout/retrait explicite d'arrêt le doit. `stops` en
-// dépendance est sûr malgré son type tableau : sa référence ne change que
-// lors d'un vrai ajout/retrait (jamais de mutation en place côté appelant).
+// calcul, seul un ajout/retrait/déplacement explicite d'arrêt le doit.
 //
-// `hasOrigin` est bien nécessaire en dépendance, lui, malgré la remarque
-// ci-dessus : si le premier arrêt est ajouté avant le tout premier fix GPS,
-// `originRef.current` vaut `undefined` au moment où cet effet s'exécute, et
-// rien ne le redéclenche jamais quand le fix finit par arriver — la ref
-// changeant silencieusement, sans re-rendu. `hasOrigin` est le seul signal
-// qui bascule alors de `false` à `true` et relance ce calcul.
+// Dépendre d'une clé dérivée des coordonnées plutôt que de la référence de
+// `stops` directement : un arrêt ajouté par appui sur la carte reçoit
+// d'abord un libellé de repli (coordonnées), puis son vrai nom une fois le
+// géocodage inverse résolu (MapScreen.handleMapLongPress) — un nouveau
+// libellé change la référence de `stops` sans changer le trajet à calculer,
+// et recalculer dans ce cas serait un appel réseau inutile en plus d'un
+// clignotement des statistiques déjà affichées.
+//
+// `hasOrigin` est bien nécessaire en dépendance, lui : si le premier arrêt
+// est ajouté avant le tout premier fix GPS, `originRef.current` vaut
+// `undefined` au moment où cet effet s'exécute, et rien ne le redéclenche
+// jamais quand le fix finit par arriver — la ref changeant silencieusement,
+// sans re-rendu. `hasOrigin` est le seul signal qui bascule alors de `false`
+// à `true` et relance ce calcul.
 export function useRoute(
   stops: readonly AddressSuggestionDto[],
   originRef: RefObject<LastKnownPosition | undefined>,
@@ -32,6 +38,9 @@ export function useRoute(
   const [route, setRoute] = useState<RouteGeometryDto | undefined>(undefined);
   const [isComputing, setIsComputing] = useState(false);
   const [error, setError] = useState<string | undefined>(undefined);
+  const stopCoordinatesKey = stops
+    .map((stop) => `${String(stop.latitude)},${String(stop.longitude)}`)
+    .join('|');
 
   useEffect(() => {
     if (stops.length === 0) {
@@ -82,7 +91,7 @@ export function useRoute(
     return () => {
       cancelled = true;
     };
-  }, [stops, originRef, hasOrigin]);
+  }, [stopCoordinatesKey, originRef, hasOrigin]);
 
   return { route, isComputing, error };
 }
