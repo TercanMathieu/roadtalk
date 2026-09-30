@@ -19,6 +19,7 @@ import { withFreshAccessToken } from '../auth/auth.store';
 import { useRoute } from '../routing/useRoute';
 import { AddressSearchBar } from '../search/AddressSearchBar';
 import { reverseGeocode } from '../search/api';
+import { useSettingsStore } from '../settings/settings.store';
 import { loadNavigationMapStyle } from './loadMapStyle';
 import {
   DEFAULT_CENTER_COORDINATES,
@@ -86,7 +87,13 @@ export function MapScreen(): React.JSX.Element {
   // Tenu ici plutôt que dans la barre de recherche : l'identité de la ref est
   // stable, la passer en prop ne provoque aucun rendu supplémentaire.
   const { positionRef: originRef, hasFix: hasGpsFix } = useLastKnownPosition(permission === 'granted');
-  const { route, isComputing: isComputingRoute, error: routeError } = useRoute(stops, originRef, hasGpsFix);
+  const avoidHighways = useSettingsStore((state) => state.avoidHighways);
+  const { route, isComputing: isComputingRoute, error: routeError } = useRoute(
+    stops,
+    originRef,
+    hasGpsFix,
+    avoidHighways,
+  );
 
   useEffect(() => {
     let cancelled = false;

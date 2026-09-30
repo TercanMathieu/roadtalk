@@ -124,6 +124,38 @@ describe('ValhallaRouter', () => {
     });
   });
 
+  it("n'envoie pas costing_options quand avoidHighways n'est pas demandé", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () =>
+        Promise.resolve({ trip: { summary: { length: 1, time: 1 }, legs: [{ shape: 'e~epoA|jfpOiDaK' }] } }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await router.computeRoute([origin, destination]);
+
+    const [, options] = fetchMock.mock.calls[0] as [URL, RequestInit];
+    const body: unknown = JSON.parse(options.body as string);
+    expect(body).not.toHaveProperty('costing_options');
+  });
+
+  it('envoie use_highways à 0 quand avoidHighways est demandé', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () =>
+        Promise.resolve({ trip: { summary: { length: 1, time: 1 }, legs: [{ shape: 'e~epoA|jfpOiDaK' }] } }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await router.computeRoute([origin, destination], true);
+
+    const [, options] = fetchMock.mock.calls[0] as [URL, RequestInit];
+    const body: unknown = JSON.parse(options.body as string);
+    expect(body).toMatchObject({ costing_options: { motorcycle: { use_highways: 0 } } });
+  });
+
   it('assemble les legs de plusieurs arrêts en un seul tracé continu', async () => {
     // Même vecteur officiel réutilisé deux fois : suffit à prouver que le
     // routeur assemble bien N legs plutôt que de ne lire que legs[0] — la

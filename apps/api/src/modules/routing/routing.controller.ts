@@ -25,6 +25,6 @@ export class RoutingController {
   async computeRoute(
     @Body(new ZodValidationPipe(routingQuerySchema)) query: RoutingQueryDto,
   ): Promise<RouteGeometryDto> {
-    return this.routingService.computeRoute(query.waypoints);
+    return this.routingService.computeRoute(query.waypoints, query.avoidHighways);
   }
 }

@@ -8,6 +8,10 @@ import { geoPointSchema } from './route.contract';
 // dans cet ordre — au minimum origine + une destination.
 export const routingQuerySchema = z.object({
   waypoints: z.array(geoPointSchema).min(2),
+  // Absent = comportement par défaut du moteur de routage (autoroutes
+  // autorisées). Optionnel plutôt que `boolean` avec valeur par défaut : la
+  // sémantique "non précisé" doit rester distincte de "false" côté serveur.
+  avoidHighways: z.boolean().optional(),
 });
 
 export type RoutingQueryDto = z.infer<typeof routingQuerySchema>;
