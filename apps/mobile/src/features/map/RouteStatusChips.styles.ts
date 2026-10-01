@@ -18,6 +18,20 @@ export const styles = StyleSheet.create({
     borderRadius: 9999,
     backgroundColor: colors.surfaceRow,
   },
+  trailingGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  aiChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: 9999,
+    backgroundColor: colors.accent,
+  },
   badge: {
     flexDirection: 'row',
     alignItems: 'center',
