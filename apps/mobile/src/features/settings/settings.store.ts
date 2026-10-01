@@ -6,9 +6,17 @@ interface SettingsState {
   readonly distanceUnit: DistanceUnit;
   readonly voiceEnabled: boolean;
   readonly avoidHighways: boolean;
+  // Préférences sans système derrière pour l'instant (pas de détection de
+  // zones de danger, pas de téléchargement de corridor hors-ligne) — la
+  // préférence existe et se retient dans l'écran Réglages, mais ne pilote
+  // rien d'autre tant que ces fonctionnalités ne sont pas construites.
+  readonly dangerAlertsEnabled: boolean;
+  readonly corridorAutoDownloadEnabled: boolean;
   readonly setDistanceUnit: (unit: DistanceUnit) => void;
   readonly setVoiceEnabled: (enabled: boolean) => void;
   readonly setAvoidHighways: (enabled: boolean) => void;
+  readonly setDangerAlertsEnabled: (enabled: boolean) => void;
+  readonly setCorridorAutoDownloadEnabled: (enabled: boolean) => void;
 }
 
 // En mémoire pour l'instant : react-native-mmkv (décidé pour la persistance
@@ -19,6 +27,8 @@ export const useSettingsStore = create<SettingsState>()((set) => ({
   distanceUnit: 'km',
   voiceEnabled: true,
   avoidHighways: false,
+  dangerAlertsEnabled: true,
+  corridorAutoDownloadEnabled: true,
   setDistanceUnit: (distanceUnit) => {
     set({ distanceUnit });
   },
@@ -27,5 +37,11 @@ export const useSettingsStore = create<SettingsState>()((set) => ({
   },
   setAvoidHighways: (avoidHighways) => {
     set({ avoidHighways });
+  },
+  setDangerAlertsEnabled: (dangerAlertsEnabled) => {
+    set({ dangerAlertsEnabled });
+  },
+  setCorridorAutoDownloadEnabled: (corridorAutoDownloadEnabled) => {
+    set({ corridorAutoDownloadEnabled });
   },
 }));

@@ -66,6 +66,7 @@ describe('UsersService (intégration, vraie Postgres via Testcontainers)', () =>
     const found = await service.getById(toUserId(created.id));
 
     expect(found).toEqual(created);
+    expect(created.provider).toBe('apple');
   });
 
   it('findOrCreateFromOAuth est idempotent pour la même identité OAuth', async () => {
@@ -81,6 +82,7 @@ describe('UsersService (intégration, vraie Postgres via Testcontainers)', () =>
     const second = await service.findOrCreateFromOAuth(profile);
 
     expect(second.id).toBe(first.id);
+    expect(first.provider).toBe('google');
   });
 
   it('update ne modifie que les champs fournis', async () => {

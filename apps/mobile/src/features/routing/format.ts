@@ -13,6 +13,43 @@ export function formatDistanceKm(distanceMeters: number): string {
   return `${KM_FORMATTER.format(distanceMeters / METERS_PER_KM)} km`;
 }
 
+const METERS_ROUNDING = 10;
+
+// Pour une distance à une manœuvre proche (guidage), pas le récapitulatif de
+// trajet : "80 m" se lit d'un coup d'œil, "0.1 km" demande un calcul (C2).
+// Arrondi à la dizaine de mètres la plus proche — la précision GPS ne
+// justifie de toute façon pas plus fin.
+export function formatManeuverDistance(distanceMeters: number): string {
+  if (distanceMeters < METERS_PER_KM) {
+    const rounded = Math.max(METERS_ROUNDING, Math.round(distanceMeters / METERS_ROUNDING) * METERS_ROUNDING);
+    return `${String(rounded)} m`;
+  }
+  return formatDistanceKm(distanceMeters);
+}
+
+const MPS_TO_KMH = 3.6;
+
+// Bruit Doppler GPS à l'arrêt : location.speed remonte souvent quelques
+// dixièmes de m/s (≈ 2-4 km/h affichés) même véhicule immobile. Même seuil
+// que la fiabilité du cap ailleurs dans l'app (useVehiclePosition,
+// MIN_SPEED_FOR_HEADING_MPS) — en dessous, ce n'est plus une vitesse
+// significative. Affichage seulement : la valeur Doppler brute reste la
+// source de vérité partout ailleurs (jamais dérivée de deux positions).
+const SPEED_DISPLAY_DEADZONE_MPS = 1.39;
+
+// undefined tant qu'aucune vitesse Doppler fiable n'est arrivée (voir
+// useVehiclePosition) — jamais une chaîne vide ou "0 km/h" qui laisserait
+// croire à une mesure réelle à l'arrêt du flux GPS.
+export function formatSpeedKmh(speedMps: number | undefined): string {
+  if (speedMps === undefined) {
+    return '–';
+  }
+  if (speedMps < SPEED_DISPLAY_DEADZONE_MPS) {
+    return '0';
+  }
+  return String(Math.round(speedMps * MPS_TO_KMH));
+}
+
 export function formatDuration(durationSeconds: number): string {
   const totalMinutes = Math.round(durationSeconds / SECONDS_PER_MINUTE);
   const hours = Math.floor(totalMinutes / MINUTES_PER_HOUR);

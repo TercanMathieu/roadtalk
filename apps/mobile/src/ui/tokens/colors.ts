@@ -14,4 +14,17 @@ export const colors = {
   textSecondary: '#9AA1A9',
   accent: '#FF7A1A',
   danger: '#FF3B30',
+  // Ajoutés pour l'esthétique "cockpit" (écran Réglages) : une échelle
+  // d'élévation à plusieurs niveaux plutôt qu'une seule surface, et un texte
+  // secondaire plus clair adapté à de la lecture dense. Additifs, ne
+  // remplacent aucune valeur existante ailleurs dans l'app.
+  accentLight: '#FFB68E',
+  onAccentLight: '#542200',
+  surfaceRaised: '#1E2023',
+  surfaceRow: '#1A1C1F',
+  surfaceChip: '#282A2D',
+  surfaceMuted: '#333538',
+  textDense: '#C5C6CC',
+  dangerContainer: 'rgba(147, 0, 10, 0.2)',
+  onDangerContainer: '#FFB4AB',
 } as const;

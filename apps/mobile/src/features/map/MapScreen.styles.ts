@@ -21,4 +21,19 @@ export const styles = StyleSheet.create({
     borderRadius: spacing.sm,
     padding: spacing.md,
   },
+  maneuverBannerWrapper: {
+    position: 'absolute',
+    left: spacing.md,
+    right: spacing.md,
+  },
+  routeStatusChipsWrapper: {
+    position: 'absolute',
+    left: spacing.md,
+    right: spacing.md,
+  },
+  snackbarWrapper: {
+    position: 'absolute',
+    left: spacing.md,
+    right: spacing.md,
+  },
 });

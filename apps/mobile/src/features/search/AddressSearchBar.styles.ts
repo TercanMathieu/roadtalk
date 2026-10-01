@@ -8,6 +8,14 @@ export const styles = StyleSheet.create({
     left: spacing.md,
     right: spacing.md,
   },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+  },
+  searchColumn: {
+    flex: 1,
+  },
   bar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -15,9 +23,12 @@ export const styles = StyleSheet.create({
     minHeight: MIN_TOUCH_TARGET_DP,
     paddingHorizontal: spacing.md,
     borderRadius: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.surfaceChip,
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 2,
   },
   input: {
     flex: 1,
@@ -25,19 +36,41 @@ export const styles = StyleSheet.create({
     fontSize: 16,
   },
   clearButton: {
-    // Cible tactile élargie bien au-delà du glyphe (C2, usage avec gants).
     minWidth: MIN_TOUCH_TARGET_DP,
     minHeight: MIN_TOUCH_TARGET_DP,
     alignItems: 'center',
     justifyContent: 'center',
+    // Compense le padding de la barre pour que la cible tactile déborde
+    // jusqu'au bord plutôt que de rajouter à la largeur totale.
+    marginVertical: -spacing.sm,
+    marginRight: -spacing.md,
+  },
+  // Pas de cible 64dp ici (contrairement à clearButton) : accessoire
+  // secondaire de la barre de recherche, pas une action de sécurité — voir
+  // la consigne du Figma lui-même, qui ne marque "Glove Safe" que les
+  // actions importantes (voir Réglages). La taille suit le design tel quel,
+  // un hitSlop compense pour rester confortable au doigt.
+  voiceButton: {
+    width: 32,
+    height: 40,
+    borderRadius: spacing.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surfaceRaised,
+  },
+  gpxButton: {
+    width: MIN_TOUCH_TARGET_DP,
+    height: MIN_TOUCH_TARGET_DP,
+    borderRadius: spacing.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surfaceChip,
   },
   panel: {
     marginTop: spacing.sm,
     borderRadius: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
     overflow: 'hidden',
+    backgroundColor: colors.surfaceRow,
   },
   message: {
     padding: spacing.md,

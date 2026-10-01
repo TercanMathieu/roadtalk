@@ -1,4 +1,4 @@
-import { ErrorCode } from '@roadtalk/contracts';
+import { ErrorCode, type UserDto } from '@roadtalk/contracts';
 import * as SecureStore from 'expo-secure-store';
 import { create } from 'zustand';
 
@@ -16,6 +16,8 @@ interface AuthState {
   // undefined : pas encore su (avant la première résolution de session).
   // null : su, mais l'utilisateur ne l'a pas encore choisi.
   readonly username: string | null | undefined;
+  readonly email: string | undefined;
+  readonly provider: UserDto['provider'] | undefined;
   readonly hydrate: () => Promise<void>;
   readonly signInWithGoogle: (idToken: string) => Promise<void>;
   readonly signOut: () => Promise<void>;
@@ -29,6 +31,8 @@ export const useAuthStore = create<AuthState>((set) => ({
   status: 'checking',
   accessToken: undefined,
   username: undefined,
+  email: undefined,
+  provider: undefined,
 
   hydrate: async () => {
     const storedRefreshToken = await SecureStore.getItemAsync(REFRESH_TOKEN_KEY);
@@ -42,7 +46,13 @@ export const useAuthStore = create<AuthState>((set) => ({
       const tokens = await refreshTokenPair(storedRefreshToken);
       await SecureStore.setItemAsync(REFRESH_TOKEN_KEY, tokens.refreshToken);
       const me = await getMe(tokens.accessToken);
-      set({ status: 'authenticated', accessToken: tokens.accessToken, username: me.username });
+      set({
+        status: 'authenticated',
+        accessToken: tokens.accessToken,
+        username: me.username,
+        email: me.email,
+        provider: me.provider,
+      });
     } catch {
       await SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY);
       set({ status: 'unauthenticated' });
@@ -53,7 +63,13 @@ export const useAuthStore = create<AuthState>((set) => ({
     const tokens = await loginWithGoogle(idToken);
     await SecureStore.setItemAsync(REFRESH_TOKEN_KEY, tokens.refreshToken);
     const me = await getMe(tokens.accessToken);
-    set({ status: 'authenticated', accessToken: tokens.accessToken, username: me.username });
+    set({
+      status: 'authenticated',
+      accessToken: tokens.accessToken,
+      username: me.username,
+      email: me.email,
+      provider: me.provider,
+    });
   },
 
   signOut: async () => {
@@ -64,7 +80,13 @@ export const useAuthStore = create<AuthState>((set) => ({
       await logout(storedRefreshToken).catch(() => undefined);
     }
     await SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY);
-    set({ status: 'unauthenticated', accessToken: undefined, username: undefined });
+    set({
+      status: 'unauthenticated',
+      accessToken: undefined,
+      username: undefined,
+      email: undefined,
+      provider: undefined,
+    });
   },
 
   chooseUsername: async (username: string) => {

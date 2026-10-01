@@ -1,5 +1,5 @@
 import { type GeolocationPosition, LocationManager, useCurrentPosition } from '@maplibre/maplibre-react-native';
-import { type Degrees, degrees, metersPerSecond } from '@roadtalk/domain-shared';
+import { type Degrees, degrees, type MetersPerSecond, metersPerSecond } from '@roadtalk/domain-shared';
 import { useEffect, useState } from 'react';
 
 import { useDeviceHeading } from './useDeviceHeading';
@@ -21,10 +21,20 @@ const MIN_SPEED_FOR_HEADING_MPS = metersPerSecond(1.39);
 const ENGINE_RESTART_TIMEOUT_MS = 5000;
 
 interface VehiclePosition {
-  // [longitude, latitude] — convention GeoJSON/MapLibre.
+  // [longitude, latitude] — convention GeoJSON/MapLibre, pour les composants
+  // qui placent un marqueur sur la carte.
   readonly lngLat: [number, number];
+  // Mêmes coordonnées que `lngLat`, mais à plat — pour les consommateurs qui
+  // n'ont rien à voir avec MapLibre (ex. calcul de progression sur le
+  // trajet, route-progress.ts), pour qui reconstituer depuis le tuple
+  // n'apporterait rien.
+  readonly latitude: number;
+  readonly longitude: number;
   // undefined tant qu'aucun cap fiable n'a encore été observé.
   readonly headingDeg: Degrees | undefined;
+  // Vitesse Doppler brute (voir règle physique du projet : jamais dérivée de
+  // deux positions) — undefined tant qu'aucune mesure fiable n'est arrivée.
+  readonly speedMps: MetersPerSecond | undefined;
 }
 
 // Réutilise le moteur de localisation natif de MapLibre (même flux que
@@ -116,6 +126,9 @@ export function useVehiclePosition(): VehiclePosition | undefined {
 
   return {
     lngLat: [position.coords.longitude, position.coords.latitude],
+    latitude: position.coords.latitude,
+    longitude: position.coords.longitude,
     headingDeg,
+    speedMps: speed !== null ? metersPerSecond(speed) : undefined,
   };
 }

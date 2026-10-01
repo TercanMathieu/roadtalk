@@ -8,7 +8,8 @@ import { colors, Text } from '../../ui';
 import { formatArrivalTime, formatDistanceKm, formatDuration } from '../routing/format';
 import { styles } from './TripSummaryCard.styles';
 
-const ICON_SIZE = 22;
+const ICON_SIZE = 18;
+const START_ICON_SIZE = 22;
 
 interface Props {
   // Dans l'ordre de visite — jamais vide quand ce composant est rendu,
@@ -17,51 +18,114 @@ interface Props {
   readonly route: RouteGeometryDto | undefined;
   readonly isComputing: boolean;
   readonly error: string | undefined;
-  // Retire un arrêt précis plutôt qu'un "annuler tout" séparé : retirer le
-  // dernier arrêt restant vide la liste, et l'écran parent referme la carte
-  // de lui-même — un seul geste à apprendre, cohérent quel que soit le
-  // nombre d'arrêts.
   readonly onRemoveStop: (index: number) => void;
-  // Remonte la hauteur réelle de la carte : elle varie avec le nombre
-  // d'arrêts et son contenu (chargement, erreur, ou les trois statistiques),
-  // et l'écran parent s'en sert pour ne pas laisser le bouton de recentrage
-  // la chevaucher.
+  // Focus la barre de recherche (voir MapScreen, searchInputRef) — pas de
+  // sélecteur dédié, ajouter un arrêt passe toujours par la recherche.
+  readonly onAddStop: () => void;
+  readonly onStart: () => void;
   readonly onLayout: (event: LayoutChangeEvent) => void;
 }
 
-// Écran de préparation, pas de guidage (DA section 8) : trois chiffres au
-// choix de la destination, avant de rouler — pas les 3 infos du mode
-// guidage, un contexte différent avec des besoins différents.
+// Écran de préparation, pas de guidage (DA section 8) : la feuille de route
+// complète avant de rouler — pas les 3 infos du mode guidage, un contexte
+// différent avec des besoins différents.
 export function TripSummaryCard({
   stops,
   route,
   isComputing,
   error,
   onRemoveStop,
+  onAddStop,
+  onStart,
   onLayout,
 }: Props): React.JSX.Element {
+  // +1 : la position de départ compte comme premier jalon, bien qu'elle ne
+  // fasse jamais partie de `stops` (voir MapScreen).
+  const waypointCount = stops.length + 1;
+
   return (
     <View style={styles.card} onLayout={onLayout}>
-      {stops.map((stop, index) => (
-        <View
-          key={`${stop.label}-${String(stop.latitude)}-${String(stop.longitude)}`}
-          style={[styles.stopRow, index === 0 ? styles.firstStopRow : null]}
-        >
-          <Text variant="title" numberOfLines={1} style={styles.stopLabel}>
-            {stop.label}
+      <View style={styles.header}>
+        <View style={styles.headerTitle}>
+          <MaterialCommunityIcons name="routes" size={18} color={colors.textPrimary} />
+          <Text variant="title" style={styles.headerTitleText}>
+            Feuille de route
           </Text>
-          <Pressable
-            onPress={() => {
-              onRemoveStop(index);
-            }}
-            accessibilityRole="button"
-            accessibilityLabel={`Retirer l'arrêt ${stop.label}`}
-            style={styles.closeButton}
-          >
-            <MaterialCommunityIcons name="close" size={ICON_SIZE} color={colors.textSecondary} />
-          </Pressable>
         </View>
-      ))}
+        <View style={styles.jalonsBadge}>
+          <Text variant="mono" color={colors.textDense}>
+            {waypointCount} {waypointCount > 1 ? 'jalons' : 'jalon'}
+          </Text>
+        </View>
+      </View>
+
+      <View style={styles.stepsList}>
+        <View style={styles.stepRow}>
+          <View style={[styles.stepBadge, styles.originBadge]}>
+            <Text variant="monoBold" color={colors.accentLight}>
+              D
+            </Text>
+          </View>
+          <View style={styles.stepTexts}>
+            <Text variant="mono" color={colors.textDense}>
+              Départ immédiat
+            </Text>
+            {/* Pas de géocodage inverse de la position de l'utilisateur
+                lui-même (coûteux, jamais utilisé ailleurs) : un libellé
+                générique plutôt qu'une fausse adresse précise. */}
+            <Text variant="body" numberOfLines={1}>
+              Position actuelle
+            </Text>
+          </View>
+        </View>
+
+        {stops.map((stop, index) => {
+          const isLast = index === stops.length - 1;
+
+          return (
+            <View
+              key={`${stop.label}-${String(stop.latitude)}-${String(stop.longitude)}`}
+              style={styles.stepRow}
+            >
+              <View style={[styles.stepBadge, isLast ? styles.terminusBadge : null]}>
+                <Text variant="monoBold" color={isLast ? colors.onAccentLight : colors.textPrimary}>
+                  {isLast ? 'A' : index + 1}
+                </Text>
+              </View>
+              <View style={styles.stepTexts}>
+                <Text variant="mono" color={colors.textDense}>
+                  {isLast ? 'Terminus' : `Étape ${String(index + 1)}`}
+                </Text>
+                <Text variant="body" numberOfLines={1}>
+                  {stop.label}
+                </Text>
+              </View>
+              <Pressable
+                onPress={() => {
+                  onRemoveStop(index);
+                }}
+                accessibilityRole="button"
+                accessibilityLabel={`Retirer l'arrêt ${stop.label}`}
+                style={styles.closeButton}
+              >
+                <MaterialCommunityIcons name="close" size={ICON_SIZE} color={colors.textSecondary} />
+              </Pressable>
+            </View>
+          );
+        })}
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Ajouter un arrêt"
+          onPress={onAddStop}
+          style={({ pressed }) => [styles.addStopButton, pressed ? styles.addStopButtonPressed : null]}
+        >
+          <MaterialCommunityIcons name="map-marker-plus-outline" size={ICON_SIZE} color={colors.textPrimary} />
+          <Text variant="monoBold" color={colors.textPrimary}>
+            Ajouter un arrêt
+          </Text>
+        </Pressable>
+      </View>
 
       {error !== undefined ? (
         <Text variant="body" color={colors.danger} style={styles.message}>
@@ -78,14 +142,28 @@ export function TripSummaryCard({
       {error === undefined && route !== undefined ? (
         <View style={styles.stats}>
           <Stat value={formatDistanceKm(route.distanceMeters)} caption="Distance" />
-          <Stat value={formatDuration(route.durationSeconds)} caption="Durée" />
+          <Stat value={formatDuration(route.durationSeconds)} caption="Durée estimée" />
           <Stat value={formatArrivalTime(route.durationSeconds)} caption="Arrivée" />
         </View>
       ) : null}
 
-      <Text variant="label" color={colors.textSecondary} style={styles.addStopHint}>
-        Touche la barre de recherche pour ajouter un arrêt
-      </Text>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Démarrer le guidage"
+        accessibilityState={{ disabled: route === undefined }}
+        disabled={route === undefined}
+        onPress={onStart}
+        style={({ pressed }) => [
+          styles.startButton,
+          route === undefined ? styles.startButtonDisabled : null,
+          pressed ? styles.startButtonPressed : null,
+        ]}
+      >
+        <Text variant="title" color={colors.onAccentLight} style={styles.startButtonLabel}>
+          Démarrer le guidage
+        </Text>
+        <MaterialCommunityIcons name="navigation-variant" size={START_ICON_SIZE} color={colors.onAccentLight} />
+      </Pressable>
     </View>
   );
 }
@@ -98,10 +176,10 @@ interface StatProps {
 function Stat({ value, caption }: StatProps): React.JSX.Element {
   return (
     <View style={styles.stat}>
-      <Text variant="title" tabularNums>
+      <Text variant="monoBold" color={colors.textPrimary} style={styles.statValue}>
         {value}
       </Text>
-      <Text variant="label" color={colors.textSecondary} style={styles.statCaption}>
+      <Text variant="mono" color={colors.textDense}>
         {caption}
       </Text>
     </View>
