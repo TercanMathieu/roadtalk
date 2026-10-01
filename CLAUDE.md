@@ -262,7 +262,10 @@ l'utilisateur, même si l'historique est actuellement vide.
   inutile, pas d'animation décorative. Toute PR touchant la boucle de localisation doit
   justifier son coût énergétique.
 - **C2 — Zéro interaction fine en roulant** : tout se configure à l'arrêt ; guidage
-  vocal. Cibles tactiles ≥ 64dp (usage avec gants).
+  vocal. **L'app n'est pas pensée pour un usage ganté** (décision explicite,
+  2026-10-01 — annule toute mention antérieure d'un plancher de 64dp motivé par les
+  gants, y compris dans des commentaires de code pas encore mis à jour) : les cibles
+  tactiles suivent les standards usuels (iOS/Android), pas une majoration pour gants.
 - **C3 — Réseau dégradé/hors-ligne** : buffer local persistant, envoi idempotent,
   dégradation gracieuse explicite à l'écran.
 - **C4 — Données de localisation sensibles** : jamais de coordonnées dans les logs.
@@ -282,7 +285,10 @@ Direction artistique : sombre par défaut, contraste élevé ; mode jour à trè
 luminosité distinct (pas construit) ; deux modes d'écran radicalement différents
 (préparation dense vs guidage minimal, 3 infos max) ; une seule couleur d'accent pour
 l'action, rouge réservé aux alertes, jamais de couleur décorative en guidage ; chiffres
-tabulaires pour vitesse/distance ; animations strictement fonctionnelles.
+tabulaires pour vitesse/distance ; animations strictement fonctionnelles. Interface
+épurée, simple, premium (préférence explicite, 2026-10-01) : densité et taille de
+police mesurées partout, l'info ne doit jamais agresser visuellement — préférer
+alléger/resserrer un écran plutôt que le charger, y compris en guidage.
 
 Périmètre V1 : compte via Apple/Google uniquement (F1, pas de mot de passe — voir
 ADR sur l'auth à venir), profil, carte, recherche, création d'itinéraire, import GPX,
