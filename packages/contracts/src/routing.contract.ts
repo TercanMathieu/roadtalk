@@ -16,12 +16,58 @@ export const routingQuerySchema = z.object({
 
 export type RoutingQueryDto = z.infer<typeof routingQuerySchema>;
 
+// Regroupement volontairement plus grossier que l'enum interne de Valhalla
+// (30+ valeurs, ex. distinguer sortie/bretelle/insertion) : chaque valeur
+// ici correspond à une icône et une présentation distinctes côté guidage,
+// pas à chaque nuance que le moteur de routage sait exprimer. Le détail fin
+// reste dans `instruction` (texte déjà généré en français par Valhalla).
+export const maneuverTypeSchema = z.enum([
+  'start',
+  'continue',
+  'slight-right',
+  'right',
+  'sharp-right',
+  'slight-left',
+  'left',
+  'sharp-left',
+  'uturn',
+  'roundabout',
+  'merge',
+  'ferry',
+  'destination',
+]);
+
+export type ManeuverType = z.infer<typeof maneuverTypeSchema>;
+
+export const maneuverSchema = z.object({
+  type: maneuverTypeSchema,
+  // Déjà en français (requête Valhalla avec `language: "fr-FR"`) — jamais
+  // reformulé côté client, un futur changement de moteur de routage ne
+  // devrait pas avoir à réimplémenter la génération de texte.
+  instruction: z.string(),
+  streetName: z.string().optional(),
+  // Présent seulement sur la manœuvre d'entrée dans un rond-point (Valhalla
+  // ne le porte pas sur la manœuvre de sortie qui suit) — le numéro de
+  // sortie à compter, pas un simple indicateur "c'est un rond-point".
+  roundaboutExitNumber: z.number().int().positive().optional(),
+  // Point absolu où la manœuvre se produit — pas un index dans `path`, pour
+  // rester valable même si la fusion des legs (plusieurs arrêts) retire des
+  // points de jonction en double.
+  point: geoPointSchema,
+});
+
+export type ManeuverDto = z.infer<typeof maneuverSchema>;
+
 export const routeGeometrySchema = z.object({
   distanceMeters: z.number().nonnegative(),
   durationSeconds: z.number().nonnegative(),
   // Séquence ordonnée de points suivant les routes réelles (moteur de
   // routage), pas une ligne droite entre origine et destination.
   path: z.array(geoPointSchema).min(2),
+  // Dans l'ordre de parcours, tous legs confondus. Peut être vide si
+  // Valhalla n'en fournit aucune (cas limite, jamais observé en pratique) —
+  // le guidage doit s'en accommoder sans planter.
+  maneuvers: z.array(maneuverSchema),
 });
 
 export type RouteGeometryDto = z.infer<typeof routeGeometrySchema>;

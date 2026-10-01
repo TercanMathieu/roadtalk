@@ -1,10 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { ErrorCode, type GeoPointDto, type RouteGeometryDto } from '@roadtalk/contracts';
+import { ErrorCode, type GeoPointDto, type ManeuverDto, type RouteGeometryDto } from '@roadtalk/contracts';
 import { z } from 'zod';
 
 import { env } from '../../infrastructure/config/env';
 import { AppException } from '../../infrastructure/errors/app-exception';
 import { decodePolyline6 } from './decode-polyline6';
+import { mapValhallaManeuverType } from './maneuver-type';
 import { mergeLegPaths } from './merge-leg-paths';
 
 // "motorcycle", pas "auto" : coûts de circulation différents (ex. accès aux
@@ -22,6 +23,19 @@ const COSTING_PROFILE = 'motorcycle';
 // trajet est trouvé — "trip" n'existe pas du tout dans une réponse d'erreur.
 // L'absence de chemin entre les deux points est un HTTP 400, avec un corps
 // distinct portant le code interne 442 ("No path could be found for input").
+// `type` reste un nombre brut ici (l'enum Valhalla, voir maneuver-type.ts) —
+// la traduction vers l'enum du contrat se fait après décodage, pas dans ce
+// schéma dont le seul rôle est de valider la forme de la réponse externe.
+const valhallaManeuverSchema = z.object({
+  type: z.number(),
+  instruction: z.string(),
+  street_names: z.array(z.string()).optional(),
+  begin_shape_index: z.number().int().nonnegative(),
+  // Présent uniquement sur la manœuvre d'entrée dans un rond-point — vérifié
+  // contre l'instance Valhalla locale (Place Charles de Gaulle, Paris).
+  roundabout_exit_count: z.number().int().positive().optional(),
+});
+
 const valhallaRouteResponseSchema = z.object({
   trip: z.object({
     summary: z.object({
@@ -32,6 +46,7 @@ const valhallaRouteResponseSchema = z.object({
       .array(
         z.object({
           shape: z.string(),
+          maneuvers: z.array(valhallaManeuverSchema),
         }),
       )
       .min(1),
@@ -78,10 +93,47 @@ export class ValhallaRouter {
       throw new AppException(ErrorCode.ROUTING_PROVIDER_UNAVAILABLE);
     }
 
+    // Décodé une fois, réutilisé à la fois pour le tracé fusionné et pour
+    // situer chaque manœuvre : `begin_shape_index` est relatif au shape de
+    // SON leg, jamais à `path` fusionné (qui a retiré des points de jonction
+    // en double) — le résoudre ici, avant fusion, évite tout recalcul
+    // d'index après coup.
+    const legPaths = trip.legs.map((leg) => decodePolyline6(leg.shape));
+    const maneuvers = trip.legs.flatMap((leg, legIndex) => {
+      const legPath = legPaths[legIndex];
+      if (legPath === undefined) {
+        return [];
+      }
+
+      return leg.maneuvers.flatMap((maneuver): ManeuverDto[] => {
+        const point = legPath[maneuver.begin_shape_index];
+        if (point === undefined) {
+          // Ne devrait pas arriver (Valhalla renvoie des index valides pour
+          // son propre shape) — ignorer cette manœuvre plutôt que de faire
+          // échouer tout l'itinéraire pour un repère de guidage en moins.
+          return [];
+        }
+
+        const streetName = maneuver.street_names?.[0];
+        const roundaboutExitNumber = maneuver.roundabout_exit_count;
+
+        return [
+          {
+            type: mapValhallaManeuverType(maneuver.type),
+            instruction: maneuver.instruction,
+            point,
+            ...(streetName !== undefined ? { streetName } : {}),
+            ...(roundaboutExitNumber !== undefined ? { roundaboutExitNumber } : {}),
+          },
+        ];
+      });
+    });
+
     return {
       distanceMeters: trip.summary.length * KM_TO_METERS,
       durationSeconds: trip.summary.time,
-      path: mergeLegPaths(trip.legs.map((leg) => decodePolyline6(leg.shape))),
+      path: mergeLegPaths(legPaths),
+      maneuvers,
     };
   }
 
@@ -98,6 +150,9 @@ export class ValhallaRouter {
         body: JSON.stringify({
           locations: waypoints.map((point) => ({ lat: point.latitude, lon: point.longitude, type: 'break' })),
           costing: COSTING_PROFILE,
+          // Instructions de manœuvre déjà en français — jamais reformulées
+          // côté client (voir maneuverSchema dans le contrat partagé).
+          language: 'fr-FR',
           ...(avoidHighways === true
             ? { costing_options: { motorcycle: { use_highways: USE_HIGHWAYS_AVOIDED } } }
             : {}),
