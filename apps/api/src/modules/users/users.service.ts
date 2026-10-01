@@ -129,5 +129,6 @@ function toDto(row: UserRow): UserDto {
     lastName: row.lastName,
     username: row.username,
     createdAt: row.createdAt.getTime(),
+    provider: row.appleUserId !== null ? 'apple' : 'google',
   };
 }

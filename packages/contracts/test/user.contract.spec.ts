@@ -9,6 +9,7 @@ const validUser = {
   lastName: 'Dupont',
   username: null,
   createdAt: 0,
+  provider: 'google',
 };
 
 describe('userSchema', () => {

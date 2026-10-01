@@ -8,6 +8,9 @@ export const userSchema = z.object({
   // null tant que l'utilisateur n'a pas encore choisi son pseudo.
   username: z.string().nullable(),
   createdAt: z.number().int().nonnegative(),
+  // Dérivé de appleUserId/googleUserId côté serveur — toujours exactement
+  // l'un des deux (F1 : OAuth uniquement, voir findOrCreateFromOAuth).
+  provider: z.enum(['apple', 'google']),
 });
 
 export type UserDto = z.infer<typeof userSchema>;
