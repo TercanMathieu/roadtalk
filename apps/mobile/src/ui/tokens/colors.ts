@@ -27,4 +27,9 @@ export const colors = {
   textDense: '#C5C6CC',
   dangerContainer: 'rgba(147, 0, 10, 0.2)',
   onDangerContainer: '#FFB4AB',
+  // Plein (pas translucide) : alerte haute priorité type bouton d'urgence
+  // en guidage — dangerContainer reste le bon choix pour une action
+  // destructive au repos (Réglages).
+  dangerSolid: '#93000A',
+  onDangerSolid: '#FFDAD6',
 } as const;

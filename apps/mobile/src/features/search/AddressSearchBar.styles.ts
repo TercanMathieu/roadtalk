@@ -20,9 +20,9 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    minHeight: MIN_TOUCH_TARGET_DP,
-    paddingHorizontal: spacing.md,
-    borderRadius: spacing.sm,
+    minHeight: 48,
+    paddingHorizontal: spacing.sm,
+    borderRadius: 12,
     backgroundColor: colors.surfaceChip,
     shadowColor: '#000',
     shadowOpacity: 0.08,
@@ -33,35 +33,30 @@ export const styles = StyleSheet.create({
   input: {
     flex: 1,
     color: colors.textPrimary,
-    fontSize: 16,
+    fontSize: 15,
   },
   clearButton: {
-    minWidth: MIN_TOUCH_TARGET_DP,
-    minHeight: MIN_TOUCH_TARGET_DP,
+    minWidth: 40,
+    minHeight: 40,
     alignItems: 'center',
     justifyContent: 'center',
     // Compense le padding de la barre pour que la cible tactile déborde
     // jusqu'au bord plutôt que de rajouter à la largeur totale.
     marginVertical: -spacing.sm,
-    marginRight: -spacing.md,
+    marginRight: -spacing.sm,
   },
-  // Pas de cible 64dp ici (contrairement à clearButton) : accessoire
-  // secondaire de la barre de recherche, pas une action de sécurité — voir
-  // la consigne du Figma lui-même, qui ne marque "Glove Safe" que les
-  // actions importantes (voir Réglages). La taille suit le design tel quel,
-  // un hitSlop compense pour rester confortable au doigt.
   voiceButton: {
     width: 32,
-    height: 40,
+    height: 36,
     borderRadius: spacing.sm,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.surfaceRaised,
   },
   gpxButton: {
-    width: MIN_TOUCH_TARGET_DP,
-    height: MIN_TOUCH_TARGET_DP,
-    borderRadius: spacing.sm,
+    width: 48,
+    height: 48,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.surfaceChip,

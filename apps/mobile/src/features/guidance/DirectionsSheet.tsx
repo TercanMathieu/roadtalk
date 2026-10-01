@@ -17,6 +17,9 @@ interface Props {
   readonly visible: boolean;
   readonly steps: readonly ManeuverStep[];
   readonly onClose: () => void;
+  // Seul chemin de sortie du guidage depuis ce menu (voir GuidanceFooter,
+  // qui n'a plus son propre bouton Quitter séparé).
+  readonly onExitGuidance: () => void;
 }
 
 // Récapitulatif détaillé de toutes les manœuvres du trajet — déclenché
@@ -25,7 +28,7 @@ interface Props {
 // pas par un vrai geste de balayage : aucune lib de gestes dans le projet, et
 // une cible large à l'appui reste plus fiable aux gants (C2) qu'un drag
 // précis — `Modal` en anime déjà l'arrivée depuis le bas.
-export function DirectionsSheet({ visible, steps, onClose }: Props): React.JSX.Element {
+export function DirectionsSheet({ visible, steps, onClose, onExitGuidance }: Props): React.JSX.Element {
   const insets = useSafeAreaInsets();
 
   return (
@@ -43,7 +46,7 @@ export function DirectionsSheet({ visible, steps, onClose }: Props): React.JSX.E
           </Pressable>
         </View>
 
-        <ScrollView contentContainerStyle={[styles.list, { paddingBottom: spacing.md + insets.bottom }]}>
+        <ScrollView contentContainerStyle={styles.list}>
           {steps.map((step, index) => (
             <View
               key={`${step.maneuver.type}-${String(index)}`}
@@ -72,6 +75,20 @@ export function DirectionsSheet({ visible, steps, onClose }: Props): React.JSX.E
             </View>
           ))}
         </ScrollView>
+
+        <View style={[styles.exitSection, { paddingBottom: spacing.md + insets.bottom }]}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Quitter le guidage"
+            onPress={onExitGuidance}
+            style={({ pressed }) => [styles.exitButton, pressed ? styles.exitButtonPressed : null]}
+          >
+            <MaterialCommunityIcons name="close-circle-outline" size={ICON_SIZE} color={colors.onDangerSolid} />
+            <Text variant="title" color={colors.onDangerSolid} style={styles.exitButtonLabel}>
+              Quitter le guidage
+            </Text>
+          </Pressable>
+        </View>
       </View>
     </Modal>
   );

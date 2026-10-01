@@ -10,13 +10,51 @@ export const styles = StyleSheet.create({
     bottom: spacing.lg,
     borderRadius: 12,
     backgroundColor: colors.background,
-    padding: spacing.md,
-    gap: spacing.md,
+    padding: spacing.sm,
+    gap: spacing.sm,
     shadowColor: '#000',
     shadowOpacity: 0.25,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 6 },
     elevation: 6,
+  },
+  // Zone de prise du swipe (cacher/réouvrir la feuille) — plus grande que le
+  // trait visible lui-même pour rester facile à attraper.
+  gripHandle: {
+    alignItems: 'center',
+    marginTop: -spacing.xs,
+    marginHorizontal: -spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  grip: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: colors.border,
+  },
+  collapsedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  // Invisible, sert uniquement à mesurer la hauteur réduite en continu (voir
+  // TripSummaryCard) sans jamais être vue ni interceptée au toucher.
+  measureProbe: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    opacity: 0,
+  },
+  // Pendant un drag actif : la hauteur réelle de ce conteneur est animée
+  // (voir `animatedHeight`), le contenu complet est donc coupé par le bas au
+  // fur et à mesure qu'il rétrécit plutôt que débordé.
+  dragBody: {
+    overflow: 'hidden',
+  },
+  collapsedLabel: {
+    flex: 1,
+    fontSize: 12,
   },
   header: {
     flexDirection: 'row',
@@ -26,32 +64,32 @@ export const styles = StyleSheet.create({
   headerTitle: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
+    gap: spacing.xs,
   },
   headerTitleText: {
-    fontSize: 20,
+    fontSize: 15,
   },
   jalonsBadge: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.xs,
+    paddingVertical: 2,
     borderRadius: 4,
     backgroundColor: colors.surfaceRaised,
   },
   stepsList: {
-    gap: spacing.sm,
+    gap: spacing.xs,
   },
   stepRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
-    minHeight: 72,
-    padding: spacing.md,
+    gap: spacing.sm,
+    minHeight: 48,
+    padding: spacing.sm,
     borderRadius: 8,
     backgroundColor: colors.surfaceRow,
   },
   stepBadge: {
-    width: 40,
-    height: 40,
+    width: 28,
+    height: 28,
     borderRadius: 9999,
     alignItems: 'center',
     justifyContent: 'center',
@@ -65,7 +103,13 @@ export const styles = StyleSheet.create({
   },
   stepTexts: {
     flex: 1,
-    gap: 2,
+    gap: 1,
+  },
+  stepLabel: {
+    fontSize: 11,
+  },
+  stepAddress: {
+    fontSize: 14,
   },
   closeButton: {
     minWidth: MIN_TOUCH_TARGET_DP,
@@ -94,27 +138,31 @@ export const styles = StyleSheet.create({
   },
   stats: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingTop: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
   },
   stat: {
-    flex: 1,
-    gap: 2,
+    alignItems: 'center',
+    gap: 1,
   },
   statValue: {
-    fontSize: 22,
+    fontSize: 16,
   },
   startButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: spacing.md,
-    minHeight: MIN_TOUCH_TARGET_DP,
-    borderRadius: 12,
+    gap: spacing.sm,
+    minHeight: 44,
+    borderRadius: 10,
     backgroundColor: colors.accent,
     shadowColor: '#000',
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 5,
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 4,
   },
   startButtonDisabled: {
     opacity: 0.4,
@@ -123,7 +171,7 @@ export const styles = StyleSheet.create({
     opacity: 0.85,
   },
   startButtonLabel: {
-    fontSize: 18,
+    fontSize: 14,
     textTransform: 'uppercase',
   },
 });

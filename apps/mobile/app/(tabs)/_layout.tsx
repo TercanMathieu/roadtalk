@@ -3,12 +3,8 @@ import { Redirect, Tabs } from 'expo-router';
 import type React from 'react';
 
 import { useAuthStore } from '../../src/features/auth/auth.store';
-import { colors } from '../../src/ui';
+import { colors, TAB_BAR_STYLE } from '../../src/ui';
 
-// Barre d'onglets pensée pour l'usage avec gants (C2) : hauteur augmentée par
-// rapport au défaut RN, qui tourne autour de 50-55dp — trop juste pour une
-// cible tactile fiable.
-const TAB_BAR_HEIGHT = 72;
 const TAB_ICON_SIZE = 26;
 
 export default function TabsLayout(): React.JSX.Element {
@@ -31,13 +27,7 @@ export default function TabsLayout(): React.JSX.Element {
         headerShown: false,
         tabBarActiveTintColor: colors.accent,
         tabBarInactiveTintColor: colors.textSecondary,
-        tabBarStyle: {
-          backgroundColor: colors.surface,
-          borderTopColor: colors.border,
-          height: TAB_BAR_HEIGHT,
-          paddingBottom: 12,
-          paddingTop: 8,
-        },
+        tabBarStyle: TAB_BAR_STYLE,
         tabBarLabelStyle: {
           fontSize: 12,
         },

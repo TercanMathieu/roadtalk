@@ -49,4 +49,26 @@ export const styles = StyleSheet.create({
   streetName: {
     marginTop: 2,
   },
+  exitSection: {
+    padding: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  exitButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    minHeight: MIN_TOUCH_TARGET_DP,
+    borderRadius: 12,
+    // Plein (pas dangerContainer, translucide) : action du menu de guidage,
+    // pas un réglage au repos — même convention que GuidanceFooter.
+    backgroundColor: colors.dangerSolid,
+  },
+  exitButtonPressed: {
+    opacity: 0.85,
+  },
+  exitButtonLabel: {
+    fontSize: 18,
+  },
 });

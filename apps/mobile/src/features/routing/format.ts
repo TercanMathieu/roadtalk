@@ -15,16 +15,25 @@ export function formatDistanceKm(distanceMeters: number): string {
 
 const METERS_ROUNDING = 10;
 
+// Valeur et unité séparées — pour un affichage qui les distingue visuellement
+// (gros chiffre, petite unité à côté), comme le lecteur de manœuvre en
+// guidage. `formatManeuverDistance` ci-dessous les recombine pour les
+// usages en texte simple (ex. la liste de DirectionsSheet).
+export function formatManeuverDistanceParts(distanceMeters: number): { value: string; unit: 'm' | 'km' } {
+  if (distanceMeters < METERS_PER_KM) {
+    const rounded = Math.max(METERS_ROUNDING, Math.round(distanceMeters / METERS_ROUNDING) * METERS_ROUNDING);
+    return { value: String(rounded), unit: 'm' };
+  }
+  return { value: KM_FORMATTER.format(distanceMeters / METERS_PER_KM), unit: 'km' };
+}
+
 // Pour une distance à une manœuvre proche (guidage), pas le récapitulatif de
 // trajet : "80 m" se lit d'un coup d'œil, "0.1 km" demande un calcul (C2).
 // Arrondi à la dizaine de mètres la plus proche — la précision GPS ne
 // justifie de toute façon pas plus fin.
 export function formatManeuverDistance(distanceMeters: number): string {
-  if (distanceMeters < METERS_PER_KM) {
-    const rounded = Math.max(METERS_ROUNDING, Math.round(distanceMeters / METERS_ROUNDING) * METERS_ROUNDING);
-    return `${String(rounded)} m`;
-  }
-  return formatDistanceKm(distanceMeters);
+  const { value, unit } = formatManeuverDistanceParts(distanceMeters);
+  return `${value} ${unit}`;
 }
 
 const MPS_TO_KMH = 3.6;
