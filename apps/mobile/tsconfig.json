@@ -11,5 +11,5 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["app", "src"]
+  "include": ["app", "src", "test", "vitest.config.mts"]
 }

@@ -28,6 +28,7 @@ export function RecenterButton({ isFollowing, onPress, bottom }: Props): React.J
       accessibilityLabel="Centrer la carte sur ma position"
       accessibilityState={{ selected: isFollowing }}
       onPress={onPress}
+      hitSlop={8}
       style={({ pressed }) => [
         styles.button,
         bottom !== undefined ? { bottom } : null,

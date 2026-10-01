@@ -1,20 +1,26 @@
 import { StyleSheet } from 'react-native';
 
-import { colors, MIN_TOUCH_TARGET_DP, spacing } from '../../ui';
+import { colors, spacing } from '../../ui';
+
+export const MAP_OVERLAY_BUTTON_SIZE = 48;
+const BUTTON_SIZE = MAP_OVERLAY_BUTTON_SIZE;
 
 export const styles = StyleSheet.create({
   button: {
     position: 'absolute',
     right: spacing.md,
     bottom: spacing.lg,
-    width: MIN_TOUCH_TARGET_DP,
-    height: MIN_TOUCH_TARGET_DP,
+    width: BUTTON_SIZE,
+    height: BUTTON_SIZE,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: MIN_TOUCH_TARGET_DP / 2,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
+    borderRadius: 8,
+    backgroundColor: 'rgba(40, 42, 45, 0.9)',
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
   },
   pressed: {
     backgroundColor: colors.background,

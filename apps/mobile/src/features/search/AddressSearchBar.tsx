@@ -1,7 +1,7 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import type { AddressHistoryEntryDto, AddressSuggestionDto } from '@roadtalk/contracts';
 import type React from 'react';
-import type { RefObject } from 'react';
+import type { Ref, RefObject } from 'react';
 import { useState } from 'react';
 import { Keyboard, Pressable, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -20,9 +20,21 @@ interface Props {
   readonly onSelect: (suggestion: AddressSuggestionDto) => void;
   // Position de l'utilisateur, pour proposer d'abord les adresses proches.
   readonly originRef: RefObject<LastKnownPosition | undefined>;
+  // Recherche vocale et import GPX : aucune des deux n'est construite
+  // (ni reconnaissance vocale, ni parseur GPX) — ce callback signale juste
+  // que l'action demandée n'est pas encore disponible, à l'appelant de
+  // décider comment (Snackbar côté MapScreen).
+  readonly onUnavailableFeature: (message: string) => void;
+  // Permet à l'écran parent de donner le focus depuis ailleurs (ex. bouton
+  // "Ajouter un arrêt" de TripSummaryCard) — React 19 accepte `ref` comme
+  // une prop normale sur les composants fonction, pas besoin de forwardRef.
+  readonly ref?: Ref<TextInput>;
 }
 
-export function AddressSearchBar({ onSelect, originRef }: Props): React.JSX.Element {
+const VOICE_SEARCH_UNAVAILABLE_MESSAGE = 'Recherche vocale bientôt disponible.';
+const GPX_IMPORT_UNAVAILABLE_MESSAGE = 'Import GPX bientôt disponible.';
+
+export function AddressSearchBar({ onSelect, originRef, onUnavailableFeature, ref }: Props): React.JSX.Element {
   const insets = useSafeAreaInsets();
   const { query, results, isSearching, error, setQuery, clear } = useAddressSearch(originRef);
   const history = useAddressHistory();
@@ -55,51 +67,79 @@ export function AddressSearchBar({ onSelect, originRef }: Props): React.JSX.Elem
 
   return (
     <View style={[styles.container, { top: insets.top + spacing.sm }]}>
-      <View style={styles.bar}>
-        <MaterialCommunityIcons name="magnify" size={ICON_SIZE} color={colors.textSecondary} />
-        <TextInput
-          value={query}
-          onChangeText={setQuery}
-          onFocus={handleFocus}
-          // Pas de délai avant de masquer : les lignes du panneau restent
-          // fiables au toucher malgré la perte de focus qui précède leur
-          // `onPress`, comme déjà observé sur le panneau de résultats de
-          // recherche (aucun workaround nécessaire en pratique sur ce projet).
-          onBlur={() => {
-            setIsFocused(false);
-          }}
-          placeholder="Où aller ?"
-          placeholderTextColor={colors.textSecondary}
-          style={styles.input}
-          autoCorrect={false}
-          returnKeyType="search"
-        />
-        {query.length > 0 ? (
-          <Pressable onPress={clear} accessibilityRole="button" style={styles.clearButton}>
-            <MaterialCommunityIcons name="close" size={ICON_SIZE} color={colors.textSecondary} />
-          </Pressable>
-        ) : null}
-      </View>
+      <View style={styles.row}>
+        <View style={styles.searchColumn}>
+          <View style={styles.bar}>
+            <MaterialCommunityIcons name="magnify" size={ICON_SIZE} color={colors.textSecondary} />
+            <TextInput
+              ref={ref}
+              value={query}
+              onChangeText={setQuery}
+              onFocus={handleFocus}
+              // Pas de délai avant de masquer : les lignes du panneau restent
+              // fiables au toucher malgré la perte de focus qui précède leur
+              // `onPress`, comme déjà observé sur le panneau de résultats de
+              // recherche (aucun workaround nécessaire en pratique sur ce projet).
+              onBlur={() => {
+                setIsFocused(false);
+              }}
+              placeholder="Destination, col alpin, étape…"
+              placeholderTextColor={colors.textSecondary}
+              style={styles.input}
+              autoCorrect={false}
+              returnKeyType="search"
+            />
+            {query.length > 0 ? (
+              <Pressable onPress={clear} accessibilityRole="button" style={styles.clearButton}>
+                <MaterialCommunityIcons name="close" size={ICON_SIZE} color={colors.textSecondary} />
+              </Pressable>
+            ) : (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Recherche vocale"
+                hitSlop={8}
+                onPress={() => {
+                  onUnavailableFeature(VOICE_SEARCH_UNAVAILABLE_MESSAGE);
+                }}
+                style={styles.voiceButton}
+              >
+                <MaterialCommunityIcons name="microphone-outline" size={ICON_SIZE} color={colors.textDense} />
+              </Pressable>
+            )}
+          </View>
 
-      {hasPanel ? (
-        <View style={styles.panel}>
-          {showingSearch ? (
-            <SearchPanelContent
-              results={results}
-              isSearching={isSearching}
-              error={error}
-              onSelect={handleSelect}
-            />
-          ) : (
-            <HistoryPanelContent
-              entries={history.entries}
-              isLoading={history.isLoading}
-              error={history.error}
-              onSelect={handleSelect}
-            />
-          )}
+          {hasPanel ? (
+            <View style={styles.panel}>
+              {showingSearch ? (
+                <SearchPanelContent
+                  results={results}
+                  isSearching={isSearching}
+                  error={error}
+                  onSelect={handleSelect}
+                />
+              ) : (
+                <HistoryPanelContent
+                  entries={history.entries}
+                  isLoading={history.isLoading}
+                  error={history.error}
+                  onSelect={handleSelect}
+                />
+              )}
+            </View>
+          ) : null}
         </View>
-      ) : null}
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Importer un fichier GPX"
+          onPress={() => {
+            onUnavailableFeature(GPX_IMPORT_UNAVAILABLE_MESSAGE);
+          }}
+          style={styles.gpxButton}
+        >
+          <MaterialCommunityIcons name="file-upload-outline" size={ICON_SIZE} color={colors.textPrimary} />
+        </Pressable>
+      </View>
     </View>
   );
 }

@@ -5,17 +5,24 @@ import {
   Map,
   type PressEvent,
   type StyleSpecification,
+  type TrackUserLocation,
   type ViewStateChangeEvent,
 } from '@maplibre/maplibre-react-native';
 import type { AddressSuggestionDto } from '@roadtalk/contracts';
 import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
 import type { LayoutChangeEvent, NativeSyntheticEvent } from 'react-native';
-import { View } from 'react-native';
+import { TextInput, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useLastKnownPosition } from '../../lib/useLastKnownPosition';
-import { colors, spacing, Text } from '../../ui';
+import { colors, MIN_TOUCH_TARGET_DP, Snackbar, spacing, Text, useSnackbar } from '../../ui';
 import { withFreshAccessToken } from '../auth/auth.store';
+import { DirectionsSheet } from '../guidance/DirectionsSheet';
+import { GuidanceFooter } from '../guidance/GuidanceFooter';
+import { ManeuverBanner } from '../guidance/ManeuverBanner';
+import { OFF_ROUTE_THRESHOLD_METERS } from '../guidance/route-progress';
+import { useManeuverSteps, useRouteProgress } from '../guidance/useRouteProgress';
 import { useRoute } from '../routing/useRoute';
 import { AddressSearchBar } from '../search/AddressSearchBar';
 import { reverseGeocode } from '../search/api';
@@ -27,12 +34,16 @@ import {
   DEFAULT_ZOOM_LEVEL,
   MAP_STYLE_URL,
 } from './map.config';
+import { MapModeButton } from './MapModeButton';
 import { styles } from './MapScreen.styles';
 import { RecenterButton } from './RecenterButton';
+import { MAP_OVERLAY_BUTTON_SIZE } from './RecenterButton.styles';
 import { RouteLine } from './RouteLine';
+import { RouteStatusChips } from './RouteStatusChips';
 import { StopMarkers } from './StopMarkers';
 import { TripSummaryCard } from './TripSummaryCard';
 import { useUserLocationPermission } from './useUserLocationPermission';
+import { useVehiclePosition } from './useVehiclePosition';
 import { VehicleMarker } from './VehicleMarker';
 
 const FLY_TO_DURATION_MS = 1200;
@@ -41,6 +52,13 @@ const FLY_TO_DURATION_MS = 1200;
 // arrêt ajouté par appui long s'affiche avec ce libellé immédiatement, avant
 // même de savoir si le géocodage inverse trouvera un nom de lieu.
 const PLACEHOLDER_LABEL_DECIMALS = 4;
+
+const MAP_MODE_UNAVAILABLE_MESSAGE = 'Mode 3D bientôt disponible.';
+// Hauteur de la barre de recherche (bar.minHeight) : la ligne de puces
+// (RouteStatusChips) se positionne juste en dessous, sans dépendre d'une
+// mesure de layout — le panneau de suggestions, lui, peut déborder par
+//-dessus en cas de recherche active, cas rare et transitoire accepté.
+const SEARCH_BAR_HEIGHT = MIN_TOUCH_TARGET_DP;
 
 // Hissé hors du composant : une identité stable évite de re-notifier la vue
 // native à chaque rendu pour une valeur qui, elle, ne change jamais.
@@ -57,9 +75,10 @@ const INITIAL_VIEW_STATE = {
 // erreurs, qui continuent de remonter.
 LogManager.setLogLevel('error');
 
-// Écran de préparation (DA section 8) : vue d'ensemble de la position, pas le
-// guidage minimal — le recentrage "default" ne fait pas tourner la carte
-// selon le cap, contrairement au futur écran de guidage turn-by-turn.
+// Deux modes d'écran radicalement différents (DA section 8) : préparation
+// (vue d'ensemble, recentrage "default" qui ne fait pas tourner la carte
+// selon le cap) et guidage turn-by-turn (caméra "course", 3 infos max,
+// aucune exploration manuelle de la carte — C2).
 export function MapScreen(): React.JSX.Element {
   const [mapStyle, setMapStyle] = useState<string | StyleSpecification>(MAP_STYLE_URL);
   // Vrai une fois que `mapStyle` a atteint sa valeur finale (succès ou échec
@@ -77,12 +96,17 @@ export function MapScreen(): React.JSX.Element {
   // liste, qui ne contient que les arrêts choisis.
   const [stops, setStops] = useState<readonly AddressSuggestionDto[]>([]);
   const [isFollowing, setIsFollowing] = useState(true);
+  const [isNavigating, setIsNavigating] = useState(false);
+  const [isDirectionsExpanded, setIsDirectionsExpanded] = useState(false);
   // Hauteur réelle de TripSummaryCard, mesurée au rendu : sa taille varie
   // selon le nombre d'arrêts et son contenu (chargement, erreur, ou les
   // trois statistiques), donc une valeur fixe aurait soit laissé un vide,
   // soit chevauché le bouton.
   const [tripSummaryCardHeight, setTripSummaryCardHeight] = useState(0);
   const cameraRef = useRef<CameraRef>(null);
+  const searchInputRef = useRef<TextInput>(null);
+  const insets = useSafeAreaInsets();
+  const snackbar = useSnackbar();
   const permission = useUserLocationPermission();
   // Tenu ici plutôt que dans la barre de recherche : l'identité de la ref est
   // stable, la passer en prop ne provoque aucun rendu supplémentaire.
@@ -94,6 +118,14 @@ export function MapScreen(): React.JSX.Element {
     hasGpsFix,
     avoidHighways,
   );
+  // Deuxième souscription à la même position (VehicleMarker en tient déjà
+  // une) : réutilise le flux natif partagé avec <Camera trackUserLocation>
+  // (voir useVehiclePosition), donc aucun capteur GPS supplémentaire — juste
+  // un second écouteur JS, négligeable comparé à refactorer VehicleMarker
+  // pour faire remonter sa position en prop.
+  const vehiclePosition = useVehiclePosition();
+  const progress = useRouteProgress(route, vehiclePosition?.latitude, vehiclePosition?.longitude);
+  const maneuverSteps = useManeuverSteps(route);
 
   useEffect(() => {
     let cancelled = false;
@@ -217,6 +249,44 @@ export function MapScreen(): React.JSX.Element {
     }
   };
 
+  // Bascule en mode guidage : caméra "course" (rotation selon le cap de
+  // déplacement), UI de préparation masquée au profit de ManeuverBanner et
+  // GuidanceFooter. Le déplacement immédiat, comme pour le recentrage, évite
+  // d'attendre le prochain point GPS pour voir l'effet de l'appui.
+  const handleStart = (): void => {
+    setIsNavigating(true);
+    setIsFollowing(true);
+
+    const origin = vehiclePosition ?? originRef.current;
+    if (origin !== undefined) {
+      cameraRef.current?.flyTo({
+        center: [origin.longitude, origin.latitude],
+        zoom: DEFAULT_ZOOM_LEVEL,
+        pitch: DEFAULT_PITCH_DEGREES,
+        duration: FLY_TO_DURATION_MS,
+      });
+    }
+  };
+
+  // Retour à l'écran de préparation : la caméra "course" a pu faire tourner
+  // la carte selon le cap — le mode "default" ne rétablit jamais seul une
+  // rotation (voir plus bas), donc le cap est explicitement remis à zéro ici.
+  const handleExit = (): void => {
+    setIsNavigating(false);
+    setIsDirectionsExpanded(false);
+
+    const origin = vehiclePosition ?? originRef.current;
+    if (origin !== undefined) {
+      cameraRef.current?.flyTo({
+        center: [origin.longitude, origin.latitude],
+        zoom: DEFAULT_ZOOM_LEVEL,
+        pitch: DEFAULT_PITCH_DEGREES,
+        bearing: 0,
+        duration: FLY_TO_DURATION_MS,
+      });
+    }
+  };
+
   // L'utilisateur reprend la main sur la caméra : on lâche le suivi, sinon le
   // prochain point GPS ramènerait la vue et rendrait la carte impossible à
   // explorer.
@@ -227,20 +297,32 @@ export function MapScreen(): React.JSX.Element {
   // nos propres `flyTo` — dont celui du bouton de recentrage — l'allumeraient
   // et éteindraient le suivi juste après l'avoir armé. `animated` distingue les
   // deux : faux pour un vrai geste, vrai pour une animation programmée.
+  //
+  // En guidage, ce cas est ignoré : aucune exploration manuelle de la carte
+  // pendant qu'on roule (C2) — un geste accidentel ne doit pas décrocher le
+  // suivi, le prochain point GPS ramène de toute façon la vue.
   const handleMapMoveStart = (event: NativeSyntheticEvent<ViewStateChangeEvent>): void => {
+    if (isNavigating) {
+      return;
+    }
     if (event.nativeEvent.userInteraction && !event.nativeEvent.animated) {
       setIsFollowing(false);
     }
   };
 
   const followsUser = permission === 'granted' && isFollowing;
-  const showsTripSummary = stops.length > 0 && permission === 'granted';
+  const trackingMode: TrackUserLocation = isNavigating ? 'course' : 'default';
+  const showsTripSummary = stops.length > 0 && permission === 'granted' && !isNavigating;
   // spacing.lg : la marge basse de TripSummaryCard elle-même (voir son style)
   // — le bouton doit franchir toute la hauteur de la carte pour arriver à son
   // sommet, plus un espace pour ne pas coller aux deux.
   const recenterButtonBottom = showsTripSummary
     ? spacing.lg + tripSummaryCardHeight + spacing.sm
     : undefined;
+  // Empilé juste au-dessus de RecenterButton, qui bouge lui-même selon la
+  // présence de TripSummaryCard.
+  const mapModeButtonBottom = (recenterButtonBottom ?? spacing.lg) + MAP_OVERLAY_BUTTON_SIZE + spacing.sm;
+  const isOffRoute = progress !== undefined && progress.distanceFromRoute > OFF_ROUTE_THRESHOLD_METERS;
 
   return (
     <View style={styles.container}>
@@ -249,13 +331,13 @@ export function MapScreen(): React.JSX.Element {
         mapStyle={mapStyle}
         onRegionWillChange={handleMapMoveStart}
         onLongPress={handleMapLongPress}
-        // Carte verrouillée au nord. Une carte tournée de travers oblige à se
-        // réorienter mentalement avant de lire quoi que ce soit — l'inverse de
-        // ce qu'on veut d'un coup d'œil en roulant (C2). Le suivi de position
-        // ne rétablit jamais de rotation de son côté : en mode "default" il
-        // reprend le cap courant sans le modifier, seuls "heading" et "course"
-        // font pivoter la carte. Ce sera le choix de l'écran de guidage, qui
-        // est un mode distinct (DA section 8).
+        // Carte verrouillée au nord en préparation. Une carte tournée de
+        // travers oblige à se réorienter mentalement avant de lire quoi que
+        // ce soit — l'inverse de ce qu'on veut d'un coup d'œil en roulant
+        // (C2). Le suivi de position ne rétablit jamais de rotation de son
+        // côté : en mode "default" il reprend le cap courant sans le
+        // modifier, seuls "heading" et "course" font pivoter la carte — c'est
+        // le choix du mode guidage ci-dessous.
         touchRotate={false}
       >
         <Camera
@@ -266,24 +348,48 @@ export function MapScreen(): React.JSX.Element {
           // remet une inclinaison nulle si elle ne vient pas d'ici
           // (MLRNCamera.kt — `tilt(stop?.pitch ?: 0.0)`).
           pitch={DEFAULT_PITCH_DEGREES}
-          {...(followsUser ? { trackUserLocation: 'default' as const } : {})}
+          {...(followsUser ? { trackUserLocation: trackingMode } : {})}
         />
-        {permission === 'granted' && isStyleReady ? <VehicleMarker /> : null}
-        {/* Avant les marqueurs d'arrêt : ordre = ordre de dessin, la ligne
-            doit passer sous les épingles, pas au-dessus. */}
+        {/* Ordre = ordre de dessin (chaque calque ajouté peint par-dessus les
+            précédents) : la ligne du tracé d'abord, sous les épingles
+            d'arrêt, elles-mêmes sous le marqueur de position — toujours
+            visible en dernier, jamais caché par le tracé ou un arrêt. */}
         {route !== undefined ? <RouteLine path={route.path} /> : null}
         {stops.length > 0 ? (
           <StopMarkers points={stops.map((stop) => ({ latitude: stop.latitude, longitude: stop.longitude }))} />
         ) : null}
+        {permission === 'granted' && isStyleReady ? <VehicleMarker /> : null}
       </Map>
 
-      <AddressSearchBar onSelect={handleAddStop} originRef={originRef} />
+      {!isNavigating ? (
+        <AddressSearchBar
+          ref={searchInputRef}
+          onSelect={handleAddStop}
+          originRef={originRef}
+          onUnavailableFeature={snackbar.show}
+        />
+      ) : null}
 
-      {permission === 'granted' ? (
+      {!isNavigating ? (
+        <View style={[styles.routeStatusChipsWrapper, { top: insets.top + spacing.sm + SEARCH_BAR_HEIGHT + spacing.sm }]}>
+          <RouteStatusChips />
+        </View>
+      ) : null}
+
+      {permission === 'granted' && !isNavigating ? (
         <RecenterButton
           isFollowing={isFollowing}
           onPress={handleRecenter}
           {...(recenterButtonBottom !== undefined ? { bottom: recenterButtonBottom } : {})}
+        />
+      ) : null}
+
+      {permission === 'granted' && !isNavigating ? (
+        <MapModeButton
+          bottom={mapModeButtonBottom}
+          onPress={() => {
+            snackbar.show(MAP_MODE_UNAVAILABLE_MESSAGE);
+          }}
         />
       ) : null}
 
@@ -305,8 +411,45 @@ export function MapScreen(): React.JSX.Element {
           isComputing={isComputingRoute}
           error={routeError}
           onRemoveStop={handleRemoveStop}
+          onAddStop={() => {
+            searchInputRef.current?.focus();
+          }}
+          onStart={handleStart}
           onLayout={handleTripSummaryCardLayout}
         />
+      ) : null}
+
+      {isNavigating && progress?.nextManeuver !== undefined && progress.distanceToNextManeuver !== undefined ? (
+        <View style={[styles.maneuverBannerWrapper, { top: insets.top + spacing.sm }]}>
+          <ManeuverBanner maneuver={progress.nextManeuver} distanceMeters={progress.distanceToNextManeuver} />
+        </View>
+      ) : null}
+
+      {isNavigating && progress !== undefined ? (
+        <GuidanceFooter
+          speedMps={vehiclePosition?.speedMps}
+          distanceRemainingMeters={progress.distanceRemaining}
+          durationRemainingSeconds={progress.durationRemaining}
+          isOffRoute={isOffRoute}
+          onExit={handleExit}
+          onExpandDirections={() => {
+            setIsDirectionsExpanded(true);
+          }}
+        />
+      ) : null}
+
+      <DirectionsSheet
+        visible={isNavigating && isDirectionsExpanded}
+        steps={maneuverSteps}
+        onClose={() => {
+          setIsDirectionsExpanded(false);
+        }}
+      />
+
+      {!isNavigating ? (
+        <View style={[styles.snackbarWrapper, { bottom: insets.bottom + spacing.sm }]}>
+          <Snackbar message={snackbar.message} />
+        </View>
       ) : null}
     </View>
   );
