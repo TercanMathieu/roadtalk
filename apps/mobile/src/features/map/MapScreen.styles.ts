@@ -21,10 +21,23 @@ export const styles = StyleSheet.create({
     borderRadius: spacing.sm,
     padding: spacing.md,
   },
+  // Plein bord (pas de marge latérale) : le lecteur de manœuvre cockpit
+  // occupe toute la largeur, contrairement au reste des overlays de l'écran
+  // de préparation.
   maneuverBannerWrapper: {
     position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+  },
+  headingBadgeWrapper: {
+    position: 'absolute',
     left: spacing.md,
+  },
+  guidanceMapButtons: {
+    position: 'absolute',
     right: spacing.md,
+    gap: spacing.md,
   },
   routeStatusChipsWrapper: {
     position: 'absolute',

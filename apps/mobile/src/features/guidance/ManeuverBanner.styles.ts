@@ -6,24 +6,32 @@ export const styles = StyleSheet.create({
   banner: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
+    gap: spacing.xs,
     width: '100%',
-    padding: spacing.md,
-    borderRadius: 12,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
+    padding: spacing.xs,
+    backgroundColor: colors.background,
   },
-  iconCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: colors.accent,
+  iconSquare: {
+    width: 44,
+    height: 44,
+    borderRadius: 8,
+    backgroundColor: colors.surfaceRaised,
     alignItems: 'center',
     justifyContent: 'center',
   },
   texts: {
     flexShrink: 1,
-    gap: 2,
+    gap: 1,
+  },
+  distanceRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: spacing.xs,
+  },
+  distanceValue: {
+    fontSize: 30,
+  },
+  directionLabel: {
+    fontSize: 14,
   },
 });

@@ -14,7 +14,7 @@ import { recordAddressSelection } from './historyApi';
 import { useAddressHistory } from './useAddressHistory';
 import { useAddressSearch } from './useAddressSearch';
 
-const ICON_SIZE = 22;
+const ICON_SIZE = 19;
 
 interface Props {
   readonly onSelect: (suggestion: AddressSuggestionDto) => void;
@@ -179,7 +179,7 @@ function SearchPanelContent({
     <>
       {results.map((suggestion, index) => (
         <Pressable
-          key={`${suggestion.label}-${String(suggestion.latitude)}-${String(suggestion.longitude)}`}
+          key={`${String(index)}-${suggestion.label}-${String(suggestion.latitude)}-${String(suggestion.longitude)}`}
           accessibilityRole="button"
           onPress={() => {
             onSelect(suggestion);
@@ -242,7 +242,7 @@ function HistoryPanelContent({
     <>
       {entries.map((entry, index) => (
         <Pressable
-          key={`${entry.label}-${String(entry.latitude)}-${String(entry.longitude)}`}
+          key={`${String(index)}-${entry.label}-${String(entry.latitude)}-${String(entry.longitude)}`}
           accessibilityRole="button"
           onPress={() => {
             onSelect(entry);

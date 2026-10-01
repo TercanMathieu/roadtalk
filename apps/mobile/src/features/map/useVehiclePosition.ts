@@ -1,5 +1,14 @@
 import { type GeolocationPosition, LocationManager, useCurrentPosition } from '@maplibre/maplibre-react-native';
-import { type Degrees, degrees, type MetersPerSecond, metersPerSecond } from '@roadtalk/domain-shared';
+import {
+  type Degrees,
+  degrees,
+  type Meters,
+  meters,
+  type MetersPerSecond,
+  metersPerSecond,
+  type TimestampMs,
+  timestampMs,
+} from '@roadtalk/domain-shared';
 import { useEffect, useState } from 'react';
 
 import { useDeviceHeading } from './useDeviceHeading';
@@ -35,6 +44,12 @@ interface VehiclePosition {
   // Vitesse Doppler brute (voir règle physique du projet : jamais dérivée de
   // deux positions) — undefined tant qu'aucune mesure fiable n'est arrivée.
   readonly speedMps: MetersPerSecond | undefined;
+  // Rayon d'incertitude horizontale à 68 % — pour le résumé de balade
+  // (ride-summary/summarize-track.ts), qui écarte les fixes trop imprécis.
+  readonly accuracyMeters: Meters;
+  // Altitude ellipsoïdale, bien plus bruitée que la position horizontale.
+  readonly altitudeMeters: Meters | undefined;
+  readonly recordedAt: TimestampMs;
 }
 
 // Réutilise le moteur de localisation natif de MapLibre (même flux que
@@ -130,5 +145,8 @@ export function useVehiclePosition(): VehiclePosition | undefined {
     longitude: position.coords.longitude,
     headingDeg,
     speedMps: speed !== null ? metersPerSecond(speed) : undefined,
+    accuracyMeters: meters(position.coords.accuracy),
+    altitudeMeters: position.coords.altitude !== null ? meters(position.coords.altitude) : undefined,
+    recordedAt: timestampMs(position.timestamp),
   };
 }

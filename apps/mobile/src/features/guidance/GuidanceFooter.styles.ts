@@ -1,6 +1,11 @@
 import { StyleSheet } from 'react-native';
 
-import { colors, MIN_TOUCH_TARGET_DP, spacing } from '../../ui';
+import { colors, spacing } from '../../ui';
+
+// Sous le plancher standard de l'app (64dp) : décision explicite de
+// l'utilisateur pour cet écran, qui accepte le compromis sur la précision au
+// doigt ganté en roulant (C2) en échange d'un bandeau moins massif.
+const ACTION_BUTTON_HEIGHT = 48;
 
 export const styles = StyleSheet.create({
   footer: {
@@ -8,56 +13,68 @@ export const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    borderTopWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.sm,
-  },
-  handleRow: {
-    alignItems: 'center',
-    paddingBottom: spacing.xs,
-  },
-  handle: {
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: colors.border,
+    backgroundColor: colors.background,
+    padding: spacing.xs,
+    gap: spacing.xs,
   },
   offRouteNotice: {
     textAlign: 'center',
-    marginBottom: spacing.xs,
   },
-  row: {
+  speedRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
+    alignItems: 'flex-end',
+    gap: spacing.xs,
   },
-  speedBlock: {
+  speedValue: {
+    fontSize: 32,
+  },
+  speedLabels: {
+    paddingBottom: 2,
+  },
+  telemetryRow: {
+    flexDirection: 'row',
     alignItems: 'flex-start',
+    paddingVertical: spacing.xs,
   },
-  infoBlock: {
+  telemetryItem: {
     flex: 1,
-    gap: 2,
+    gap: 1,
   },
-  infoSecondLine: {
+  telemetryItemEnd: {
+    alignItems: 'flex-end',
+  },
+  telemetryValue: {
+    fontSize: 15,
+  },
+  actionsRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
+    gap: spacing.xs,
   },
-  exitButton: {
-    width: MIN_TOUCH_TARGET_DP,
-    height: MIN_TOUCH_TARGET_DP,
-    borderRadius: MIN_TOUCH_TARGET_DP / 2,
+  signalButton: {
+    flex: 1,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.background,
+    gap: spacing.xs,
+    height: ACTION_BUTTON_HEIGHT,
+    borderRadius: 8,
+    backgroundColor: colors.dangerSolid,
   },
-  exitButtonPressed: {
-    backgroundColor: colors.border,
+  menuButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    height: ACTION_BUTTON_HEIGHT,
+    borderRadius: 8,
+    backgroundColor: colors.surfaceRaised,
+  },
+  actionPressed: {
+    opacity: 0.85,
+  },
+  actionLabel: {
+    fontSize: 12,
+    textTransform: 'uppercase',
   },
 });

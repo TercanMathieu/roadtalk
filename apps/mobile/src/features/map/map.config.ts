@@ -25,3 +25,11 @@ export const DEFAULT_ZOOM_LEVEL = 17;
 // donc plus de rendu et plus de données (C1, et un corridor hors-ligne plus
 // large à pré-cacher, C3).
 export const DEFAULT_PITCH_DEGREES = 45;
+
+// Mode guidage (DA cockpit, écran "Guidage Actif") : inclinaison maximale
+// MapLibre et zoom resserré pour une vue "corridor" immersive — approximation
+// volontaire d'un rendu 3D dédié (hors de portée raisonnable, voir la
+// manœuvre Figma correspondante), construite avec de vraies données de carte
+// plutôt qu'une illustration statique.
+export const GUIDANCE_PITCH_DEGREES = 60;
+export const GUIDANCE_ZOOM_LEVEL = 18;

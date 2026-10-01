@@ -7,8 +7,7 @@ import { colors, spacing, Text } from '../../ui';
 import { formatArrivalTime, formatDistanceKm, formatDuration, formatSpeedKmh } from '../routing/format';
 import { styles } from './GuidanceFooter.styles';
 
-const EXIT_ICON_SIZE = 26;
-const EXPAND_ICON_SIZE = 16;
+const ICON_SIZE = 16;
 
 interface Props {
   readonly speedMps: number | undefined;
@@ -17,72 +16,99 @@ interface Props {
   // Détection seule (voir route-progress.ts, OFF_ROUTE_THRESHOLD_METERS) —
   // pas de recalcul automatique de trajet, laissé à une itération future.
   readonly isOffRoute: boolean;
-  readonly onExit: () => void;
-  // Ouvre le récapitulatif détaillé de toutes les manœuvres (DirectionsSheet).
-  readonly onExpandDirections: () => void;
+  // Ouvre le menu cockpit (DirectionsSheet, qui porte aussi "Quitter le
+  // guidage" — pas de bouton Quitter séparé ici, voir ce composant).
+  readonly onOpenMenu: () => void;
+  // Alerte d'autres motards : hors périmètre V1 (détection de chute/SOS,
+  // voir CLAUDE.md) — signale juste l'indisponibilité (Snackbar côté
+  // MapScreen), jamais une vraie alerte envoyée.
+  readonly onSignalPress: () => void;
 }
 
-// Écran de guidage (DA section 8) : condensé pour rester une bande fine, la
-// carte doit dominer l'écran. "Quitter" est un rond icône seule (cible ≥
-// 64dp, C2) plutôt qu'un bouton pleine largeur. Le bloc distance/durée est
-// lui-même la cible pour ouvrir le récapitulatif détaillé — pas de ligne
-// supplémentaire seulement pour ça.
+// Bandeau cockpit (DA section 8, densité d'info décidée explicitement par
+// l'utilisateur au-delà de la règle "3 infos max" par défaut) : vitesse
+// réelle, télémétrie du trajet, actions dimensionnées pour les gants.
 export function GuidanceFooter({
   speedMps,
   distanceRemainingMeters,
   durationRemainingSeconds,
   isOffRoute,
-  onExit,
-  onExpandDirections,
+  onOpenMenu,
+  onSignalPress,
 }: Props): React.JSX.Element {
   const insets = useSafeAreaInsets();
 
   return (
-    <View style={[styles.footer, { paddingBottom: spacing.sm + insets.bottom }]}>
-      <View style={styles.handleRow}>
-        <View style={styles.handle} />
-      </View>
-
+    <View style={[styles.footer, { paddingBottom: spacing.md + insets.bottom }]}>
       {isOffRoute ? (
         <Text variant="label" color={colors.danger} style={styles.offRouteNotice}>
           Hors itinéraire
         </Text>
       ) : null}
 
-      <View style={styles.row}>
-        <View style={styles.speedBlock}>
-          <Text variant="display" tabularNums>
-            {formatSpeedKmh(speedMps)}
+      <View style={styles.speedRow}>
+        <Text variant="display" tabularNums style={styles.speedValue}>
+          {formatSpeedKmh(speedMps)}
+        </Text>
+        <View style={styles.speedLabels}>
+          <Text variant="monoBold" color={colors.textDense}>
+            KM/H
           </Text>
-          <Text variant="label" color={colors.textSecondary}>
-            km/h
+          <Text variant="monoBold" color={colors.accentLight}>
+            RÉEL
           </Text>
         </View>
+      </View>
 
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Voir toutes les étapes de l'itinéraire"
-          onPress={onExpandDirections}
-          style={styles.infoBlock}
-        >
-          <Text variant="body" tabularNums numberOfLines={1}>
-            {formatDistanceKm(distanceRemainingMeters)} restants
+      <View style={styles.telemetryRow}>
+        <View style={styles.telemetryItem}>
+          <Text variant="mono" color={colors.textDense}>
+            TEMPS RESTANT
           </Text>
-          <View style={styles.infoSecondLine}>
-            <Text variant="label" color={colors.textSecondary} tabularNums numberOfLines={1}>
-              {formatDuration(durationRemainingSeconds)} · arrivée {formatArrivalTime(durationRemainingSeconds)}
-            </Text>
-            <MaterialCommunityIcons name="chevron-up" size={EXPAND_ICON_SIZE} color={colors.textSecondary} />
-          </View>
-        </Pressable>
+          <Text variant="title" tabularNums style={styles.telemetryValue}>
+            {formatDuration(durationRemainingSeconds)}
+          </Text>
+        </View>
+        <View style={styles.telemetryItem}>
+          <Text variant="mono" color={colors.textDense}>
+            DISTANCE
+          </Text>
+          <Text variant="title" tabularNums style={styles.telemetryValue}>
+            {formatDistanceKm(distanceRemainingMeters)}
+          </Text>
+        </View>
+        <View style={[styles.telemetryItem, styles.telemetryItemEnd]}>
+          <Text variant="mono" color={colors.textDense}>
+            ARRIVÉE
+          </Text>
+          <Text variant="title" color={colors.accent} tabularNums style={styles.telemetryValue}>
+            {formatArrivalTime(durationRemainingSeconds)}
+          </Text>
+        </View>
+      </View>
 
+      <View style={styles.actionsRow}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Quitter le guidage"
-          onPress={onExit}
-          style={({ pressed }) => [styles.exitButton, pressed ? styles.exitButtonPressed : null]}
+          accessibilityLabel="Signaler un problème aux autres motards"
+          onPress={onSignalPress}
+          style={({ pressed }) => [styles.signalButton, pressed ? styles.actionPressed : null]}
         >
-          <MaterialCommunityIcons name="close" size={EXIT_ICON_SIZE} color={colors.textSecondary} />
+          <MaterialCommunityIcons name="alert" size={ICON_SIZE} color={colors.onDangerSolid} />
+          <Text variant="title" color={colors.onDangerSolid} style={styles.actionLabel}>
+            SIGNAL
+          </Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Menu cockpit"
+          onPress={onOpenMenu}
+          style={({ pressed }) => [styles.menuButton, pressed ? styles.actionPressed : null]}
+        >
+          <MaterialCommunityIcons name="menu" size={ICON_SIZE} color={colors.textPrimary} />
+          <Text variant="title" style={styles.actionLabel}>
+            MENU
+          </Text>
         </Pressable>
       </View>
     </View>
