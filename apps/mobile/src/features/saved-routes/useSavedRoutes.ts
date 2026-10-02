@@ -2,7 +2,7 @@ import type { RouteDto } from '@roadtalk/contracts';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { withFreshAccessToken } from '../auth/auth.store';
-import { deleteRoute, listRoutes } from './api';
+import { deleteRoute, listRoutes, renameRoute as renameRouteRequest, setRouteFavorite } from './api';
 
 interface SavedRoutes {
   readonly routes: readonly RouteDto[];
@@ -11,6 +11,10 @@ interface SavedRoutes {
   readonly refresh: () => void;
   // Optimiste, même logique que useRideHistory.removeRide.
   readonly removeRoute: (id: string) => void;
+  // Optimiste aussi. `name` déjà nettoyé et non vide (voir l'appelant).
+  readonly renameRoute: (id: string, name: string) => void;
+  // Optimiste aussi, même logique que useRideHistory.toggleFavorite.
+  readonly toggleFavorite: (id: string) => void;
 }
 
 export function useSavedRoutes(): SavedRoutes {
@@ -60,5 +64,38 @@ export function useSavedRoutes(): SavedRoutes {
     [routes],
   );
 
-  return { routes, isLoading, error, refresh, removeRoute };
+  const renameRoute = useCallback(
+    (id: string, name: string): void => {
+      const previous = routes;
+      setRoutes((current) => current.map((route) => (route.id === id ? { ...route, name } : route)));
+
+      withFreshAccessToken((accessToken) => renameRouteRequest(accessToken, id, name)).catch(() => {
+        setRoutes(previous);
+        setError('Renommage impossible.');
+      });
+    },
+    [routes],
+  );
+
+  const toggleFavorite = useCallback(
+    (id: string): void => {
+      const previous = routes;
+      const target = previous.find((route) => route.id === id);
+      if (target === undefined) {
+        return;
+      }
+      const nextIsFavorite = !target.isFavorite;
+      setRoutes((current) =>
+        current.map((route) => (route.id === id ? { ...route, isFavorite: nextIsFavorite } : route)),
+      );
+
+      withFreshAccessToken((accessToken) => setRouteFavorite(accessToken, id, nextIsFavorite)).catch(() => {
+        setRoutes(previous);
+        setError('Mise à jour du favori impossible.');
+      });
+    },
+    [routes],
+  );
+
+  return { routes, isLoading, error, refresh, removeRoute, renameRoute, toggleFavorite };
 }

@@ -1,15 +1,15 @@
 import { StyleSheet } from 'react-native';
 
-import { colors, MIN_TOUCH_TARGET_DP, spacing } from '../../ui';
+import { colors, spacing } from '../../ui';
 
 export const styles = StyleSheet.create({
   button: {
     flexDirection: 'row',
     gap: spacing.sm,
-    minHeight: MIN_TOUCH_TARGET_DP,
+    minHeight: 52,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 12,
+    borderRadius: 14,
     width: '100%',
   },
   default: {
@@ -22,7 +22,7 @@ export const styles = StyleSheet.create({
     opacity: 0.85,
   },
   label: {
-    fontSize: 12,
+    fontSize: 15,
   },
   description: {
     textAlign: 'center',

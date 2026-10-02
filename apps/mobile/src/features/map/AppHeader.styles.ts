@@ -11,9 +11,9 @@ export const styles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 1,
-    backgroundColor: 'rgba(11, 13, 16, 0.92)',
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    // Opaque : en translucide, le contenu des onglets Balades/Cockpit se
+    // lisait à travers en défilant et se mélangeait au titre.
+    backgroundColor: colors.background,
   },
   row: {
     height: APP_HEADER_HEIGHT,
@@ -25,17 +25,17 @@ export const styles = StyleSheet.create({
   brand: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs,
+    gap: 6,
   },
   brandDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
     backgroundColor: colors.accent,
   },
   brandText: {
-    fontSize: 16,
-    letterSpacing: 0.5,
+    fontSize: 17,
+    letterSpacing: -0.2,
   },
   statusGroup: {
     flexDirection: 'row',
@@ -53,10 +53,10 @@ export const styles = StyleSheet.create({
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.accent,
+    backgroundColor: colors.surfaceChip,
   },
   avatarInitial: {
     fontSize: 13,
-    color: colors.onAccentLight,
+    color: colors.textPrimary,
   },
 });

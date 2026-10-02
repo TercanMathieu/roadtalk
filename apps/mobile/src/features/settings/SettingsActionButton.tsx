@@ -35,12 +35,12 @@ export function SettingsActionButton({
         ]}
       >
         <MaterialCommunityIcons name={icon} size={18} color={contentColor} />
-        <Text variant="monoBold" color={contentColor} style={styles.label}>
+        <Text variant="captionStrong" color={contentColor} style={styles.label}>
           {label}
         </Text>
       </Pressable>
       {description !== undefined ? (
-        <Text variant="mono" color={colors.textDense} style={styles.description}>
+        <Text variant="caption" color={colors.textSecondary} style={styles.description}>
           {description}
         </Text>
       ) : null}

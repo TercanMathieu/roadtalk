@@ -24,26 +24,22 @@ export const typography = {
     fontWeight: '500',
     letterSpacing: 0.2,
   },
-  // Monospace, capitales, chasse large : registre "cockpit" (écran
-  // Réglages) pour les libellés techniques/de statut — jamais pour du texte
-  // de lecture courante. Nécessite la police JetBrainsMono_500Medium
-  // chargée par RootLayout ; `fontFamily` absente tant qu'elle ne l'est
-  // pas encore, RN retombe alors sur la police système sans erreur.
-  mono: {
-    fontFamily: 'JetBrainsMono_500Medium',
-    fontSize: 13,
-    letterSpacing: 0.8,
-    textTransform: 'uppercase',
+  // Libellés secondaires (légendes, unités, statuts) : même police système
+  // que le reste, en casse normale. L'ancien registre monospace en capitales
+  // rendait chaque écran dense et criard (préférence explicite du
+  // 2026-10-01 : interface épurée, l'info ne doit jamais agresser).
+  caption: {
+    fontSize: 12,
+    fontWeight: '500',
+    letterSpacing: 0.1,
   },
-  // Variante grasse du registre mono (badges, pastilles, libellés de bouton
-  // d'action) — taille de repli 13px, à surcharger via `style` pour les
-  // quelques tailles ponctuelles plus grandes (18/28px) plutôt que
-  // multiplier les variantes nommées pour un usage à chaque fois différent.
-  monoBold: {
-    fontFamily: 'JetBrainsMono_700Bold',
+  // Variante appuyée : valeurs chiffrées, pastilles, libellés de bouton.
+  // Chiffres tabulaires pour que distance/durée/vitesse ne dansent pas
+  // quand la valeur change — taille à surcharger via `style` au besoin.
+  captionStrong: {
     fontSize: 13,
-    letterSpacing: 0.65,
-    textTransform: 'uppercase',
+    fontWeight: '600',
+    fontVariant: ['tabular-nums'],
   },
 } as const satisfies Record<string, TextStyle>;
 

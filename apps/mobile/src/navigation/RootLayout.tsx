@@ -1,5 +1,3 @@
-import { JetBrainsMono_500Medium, JetBrainsMono_700Bold } from '@expo-google-fonts/jetbrains-mono';
-import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import type React from 'react';
@@ -18,9 +16,6 @@ import { styles } from './RootLayout.styles';
 export function RootLayout(): React.JSX.Element {
   const status = useAuthStore((state) => state.status);
   const hydrate = useAuthStore((state) => state.hydrate);
-  // Registre "cockpit" (écran Réglages, typography.mono/monoBold) — ces deux
-  // graisses suffisent, tout le reste de l'app reste sur la police système.
-  const [fontsLoaded] = useFonts({ JetBrainsMono_500Medium, JetBrainsMono_700Bold });
 
   useEffect(() => {
     hydrate().catch(() => undefined);
@@ -29,7 +24,7 @@ export function RootLayout(): React.JSX.Element {
   return (
     <SafeAreaProvider>
       <StatusBar style="light" />
-      {status === 'checking' || !fontsLoaded ? (
+      {status === 'checking' ? (
         <View style={styles.checking} />
       ) : (
         <Stack

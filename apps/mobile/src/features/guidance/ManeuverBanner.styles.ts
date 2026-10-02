@@ -6,32 +6,51 @@ export const styles = StyleSheet.create({
   banner: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs,
+    gap: spacing.md,
     width: '100%',
-    padding: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingBottom: 12,
     backgroundColor: colors.background,
   },
   iconSquare: {
-    width: 44,
-    height: 44,
-    borderRadius: 8,
-    backgroundColor: colors.surfaceRaised,
+    width: 76,
+    height: 76,
+    borderRadius: 20,
+    backgroundColor: colors.surfaceChip,
     alignItems: 'center',
     justifyContent: 'center',
   },
   texts: {
-    flexShrink: 1,
-    gap: 1,
+    flex: 1,
   },
   distanceRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
-    gap: spacing.xs,
+    gap: 6,
   },
   distanceValue: {
-    fontSize: 30,
+    fontSize: 38,
+    lineHeight: 42,
+  },
+  distanceUnit: {
+    fontSize: 20,
   },
   directionLabel: {
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  statusDetail: {
     fontSize: 14,
+  },
+  statusTitle: {
+    fontSize: 24,
+  },
+  thenChip: {
+    alignItems: 'center',
+    gap: 2,
+    paddingHorizontal: 12,
+    paddingVertical: spacing.sm,
+    borderRadius: 14,
+    backgroundColor: colors.surfaceChip,
   },
 });

@@ -106,9 +106,6 @@ export const styles = StyleSheet.create({
   statsHeader: {
     paddingHorizontal: spacing.xs,
   },
-  statsHeaderLabel: {
-    textTransform: 'uppercase',
-  },
   distanceCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -116,9 +113,6 @@ export const styles = StyleSheet.create({
     padding: spacing.md,
     borderRadius: 12,
     backgroundColor: colors.surfaceRaised,
-  },
-  statLabel: {
-    textTransform: 'uppercase',
   },
   distanceValueRow: {
     flexDirection: 'row',

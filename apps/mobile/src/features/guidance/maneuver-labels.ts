@@ -1,10 +1,9 @@
 import type { ManeuverDto, ManeuverType } from '@roadtalk/contracts';
 
-// Indication de virage courte, jamais de nom de rue — en roulant, "tournez à
-// droite" se lit d'un coup d'œil, un nom de rue demande de lire et de
-// comparer (C2). L'instruction complète de Valhalla (maneuver.instruction)
-// n'est délibérément pas utilisée ici pour la même raison : elle inclut les
-// noms de rue.
+// Indication de virage courte : en roulant, "tournez à droite" se lit d'un
+// coup d'œil (C2). L'instruction complète de Valhalla (maneuver.instruction)
+// n'est délibérément pas utilisée ici : trop longue, et elle inclut les noms
+// de rue, que le guidage n'affiche pas (décision explicite).
 //
 // "roundabout" seul (sans numéro de sortie) ne couvre que la manœuvre de
 // sortie du rond-point (voir getManeuverLabel) — l'entrée, qui porte le
@@ -22,7 +21,7 @@ const MANEUVER_LABELS: Record<ManeuverType, string> = {
   roundabout: 'Sortez du rond-point',
   merge: 'Rejoignez la voie',
   ferry: 'Empruntez le ferry',
-  destination: 'Vous êtes arrivé',
+  destination: 'Arrivée',
 };
 
 // 1 → "1re", le reste → "2e", "3e", ... — même convention que les
@@ -38,7 +37,7 @@ function ordinal(n: number): string {
 // deux dans le texte affiché.
 export function getManeuverLabel(maneuver: ManeuverDto): string {
   if (maneuver.roundaboutExitNumber !== undefined) {
-    return `Au rond-point, prenez la ${ordinal(maneuver.roundaboutExitNumber)} sortie`;
+    return `Rond-point, ${ordinal(maneuver.roundaboutExitNumber)} sortie`;
   }
   return MANEUVER_LABELS[maneuver.type];
 }

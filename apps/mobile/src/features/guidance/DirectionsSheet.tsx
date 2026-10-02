@@ -6,36 +6,50 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, spacing, Text } from '../../ui';
 import { formatManeuverDistance } from '../routing/format';
 import { styles } from './DirectionsSheet.styles';
-import { getManeuverIcon } from './maneuver-icons';
 import { getManeuverLabel } from './maneuver-labels';
+import { ManeuverIcon } from './ManeuverIcon';
 import type { ManeuverStep } from './route-progress';
 
 const ICON_SIZE = 24;
+const STEP_ICON_SIZE = 28;
 const CLOSE_ICON_SIZE = 22;
 
 interface Props {
   readonly visible: boolean;
+  // Uniquement les manœuvres encore à venir, la prochaine en premier — celles
+  // déjà franchies n'ont plus d'intérêt en roulant.
   readonly steps: readonly ManeuverStep[];
+  // Distance réelle jusqu'à la première de la liste (la prochaine manœuvre) ;
+  // les suivantes affichent la distance qui les sépare de la précédente.
+  readonly distanceToFirstMeters: number | undefined;
   readonly onClose: () => void;
   // Seul chemin de sortie du guidage depuis ce menu (voir GuidanceFooter,
   // qui n'a plus son propre bouton Quitter séparé).
   readonly onExitGuidance: () => void;
 }
 
-// Récapitulatif détaillé de toutes les manœuvres du trajet — déclenché
-// depuis le pied de guidage (GuidanceFooter), pas le résumé glanceable
-// affiché en roulant (ManeuverBanner, sans nom de rue). Ouvert par appui,
+// Liste détaillée des manœuvres restantes — déclenchée depuis le pied de
+// guidage (GuidanceFooter), en complément du bandeau glanceable affiché en
+// roulant (ManeuverBanner, une seule manœuvre à la fois). Ouvert par appui,
 // pas par un vrai geste de balayage : aucune lib de gestes dans le projet, et
 // une cible large à l'appui reste plus fiable aux gants (C2) qu'un drag
 // précis — `Modal` en anime déjà l'arrivée depuis le bas.
-export function DirectionsSheet({ visible, steps, onClose, onExitGuidance }: Props): React.JSX.Element {
+export function DirectionsSheet({
+  visible,
+  steps,
+  distanceToFirstMeters,
+  onClose,
+  onExitGuidance,
+}: Props): React.JSX.Element {
   const insets = useSafeAreaInsets();
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <View style={styles.container}>
         <View style={[styles.header, { paddingTop: insets.top + spacing.sm, paddingBottom: spacing.sm }]}>
-          <Text variant="title">Étapes de l'itinéraire</Text>
+          <Text variant="title" style={styles.title}>
+            Prochaines étapes
+          </Text>
           <Pressable
             onPress={onClose}
             accessibilityRole="button"
@@ -53,25 +67,18 @@ export function DirectionsSheet({ visible, steps, onClose, onExitGuidance }: Pro
               style={[styles.row, index === steps.length - 1 ? { borderBottomWidth: 0 } : null]}
             >
               <View style={styles.iconCircle}>
-                <MaterialCommunityIcons
-                  name={getManeuverIcon(step.maneuver.type)}
-                  size={ICON_SIZE}
-                  color={colors.background}
-                />
+                <ManeuverIcon maneuver={step.maneuver} size={STEP_ICON_SIZE} color={colors.textPrimary} />
               </View>
               <View style={styles.texts}>
                 <Text variant="body">{getManeuverLabel(step.maneuver)}</Text>
-                {step.maneuver.streetName !== undefined ? (
-                  <Text variant="label" color={colors.textSecondary} numberOfLines={1} style={styles.streetName}>
-                    {step.maneuver.streetName}
-                  </Text>
-                ) : null}
               </View>
-              {step.segmentDistance > 0 ? (
-                <Text variant="body" color={colors.textSecondary} tabularNums>
-                  {formatManeuverDistance(step.segmentDistance)}
-                </Text>
-              ) : null}
+              <Text variant="body" color={colors.textSecondary} tabularNums>
+                {formatManeuverDistance(
+                  index === 0 && distanceToFirstMeters !== undefined
+                    ? distanceToFirstMeters
+                    : step.distanceFromPrevious,
+                )}
+              </Text>
             </View>
           ))}
         </ScrollView>

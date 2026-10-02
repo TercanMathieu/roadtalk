@@ -15,13 +15,13 @@ export function SettingsSectionHeader({ icon, title, trailing }: Props): React.J
   return (
     <View style={styles.header}>
       <View style={styles.titleGroup}>
-        <MaterialCommunityIcons name={icon} size={14} color={colors.accentLight} />
-        <Text variant="mono" color={colors.accentLight}>
+        <MaterialCommunityIcons name={icon} size={14} color={colors.textSecondary} />
+        <Text variant="label" color={colors.textSecondary}>
           {title}
         </Text>
       </View>
       {trailing !== undefined ? (
-        <Text variant="mono" color={colors.textDense}>
+        <Text variant="caption" color={colors.textSecondary}>
           {trailing}
         </Text>
       ) : null}

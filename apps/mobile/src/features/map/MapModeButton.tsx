@@ -24,7 +24,7 @@ export function MapModeButton({ onPress, bottom }: Props): React.JSX.Element {
       onPress={onPress}
       style={({ pressed }) => [styles.button, { bottom }, pressed ? styles.pressed : null]}
     >
-      <Text variant="monoBold" color={colors.accentLight}>
+      <Text variant="captionStrong" color={colors.accentLight}>
         3D
       </Text>
     </Pressable>

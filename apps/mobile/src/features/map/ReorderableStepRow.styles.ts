@@ -25,14 +25,15 @@ export const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 122, 26, 0.12)',
   },
   tagLabel: {
-    fontSize: 9,
+    fontSize: 11,
   },
   addTag: {
     paddingHorizontal: spacing.xs,
     paddingVertical: 1,
   },
   addTagLabel: {
-    fontSize: 9,
+    fontSize: 11,
+    fontWeight: '500',
   },
   picker: {
     flexDirection: 'row',

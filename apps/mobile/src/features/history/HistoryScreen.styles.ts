@@ -9,8 +9,8 @@ export const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: spacing.md,
-    paddingBottom: spacing.sm,
-    gap: spacing.sm,
+    paddingBottom: 12,
+    gap: 12,
   },
   headerTop: {
     flexDirection: 'row',
@@ -25,14 +25,11 @@ export const styles = StyleSheet.create({
   gpxButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: spacing.sm,
+    gap: 6,
+    paddingHorizontal: 12,
     minHeight: 36,
-    borderRadius: 8,
+    borderRadius: 9999,
     backgroundColor: colors.surfaceChip,
-  },
-  gpxButtonLabel: {
-    fontSize: 11,
   },
   tabs: {
     alignSelf: 'flex-start',
@@ -40,38 +37,15 @@ export const styles = StyleSheet.create({
   listContent: {
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.lg,
-    gap: spacing.sm,
+    gap: 12,
   },
   listHeaderSection: {
-    gap: spacing.sm,
-    marginBottom: spacing.sm,
-  },
-  sectionHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: spacing.xs,
+    gap: 12,
+    marginBottom: spacing.xs,
   },
   sectionLabel: {
-    fontSize: 11,
-  },
-  sectionSort: {
-    fontSize: 10,
-  },
-  offlineBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
     marginTop: spacing.sm,
-    padding: spacing.sm,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: colors.danger,
-    backgroundColor: colors.dangerContainer,
-  },
-  offlineBannerText: {
-    flex: 1,
-    fontSize: 11,
+    marginLeft: spacing.xs,
   },
   snackbarWrapper: {
     position: 'absolute',
@@ -87,77 +61,6 @@ export const styles = StyleSheet.create({
   subtitle: {
     textAlign: 'center',
     marginTop: spacing.xs,
-  },
-  card: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    padding: spacing.sm,
-    borderRadius: 12,
-    backgroundColor: colors.surfaceRow,
-    shadowColor: '#000',
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
-  },
-  cardTexts: {
-    flex: 1,
-    gap: 2,
-  },
-  cardTagRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.xs,
-    marginBottom: 2,
-  },
-  cardTag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    paddingHorizontal: spacing.xs,
-    paddingVertical: 2,
-    borderRadius: 4,
-    backgroundColor: colors.surfaceChip,
-  },
-  cardTagRide: {
-    backgroundColor: colors.accent,
-  },
-  cardTagRoute: {
-    backgroundColor: colors.surfaceMuted,
-  },
-  cardTagLabel: {
-    fontSize: 9,
-  },
-  cardName: {
-    fontSize: 15,
-  },
-  cardDate: {
-    fontSize: 11,
-  },
-  cardStatsRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    marginTop: 2,
-  },
-  cardStat: {
-    fontSize: 12,
-  },
-  cardActions: {
-    alignItems: 'flex-end',
-    gap: spacing.xs,
-  },
-  cardStatsCompact: {
-    flexDirection: 'row',
-    gap: spacing.xs,
-  },
-  launchButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.accent,
   },
   pressed: {
     opacity: 0.85,
