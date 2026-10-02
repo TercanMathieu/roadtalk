@@ -10,11 +10,11 @@ import {
   type ViewStateChangeEvent,
 } from '@maplibre/maplibre-react-native';
 import type { AddressSuggestionDto } from '@roadtalk/contracts';
-import { useNavigation } from 'expo-router';
+import { useFocusEffect, useNavigation } from 'expo-router';
 import type React from 'react';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { LayoutChangeEvent, NativeSyntheticEvent } from 'react-native';
-import { TextInput, View } from 'react-native';
+import { Keyboard, Pressable, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useLastKnownPosition } from '../../lib/useLastKnownPosition';
@@ -30,9 +30,13 @@ import { type RideSummary, summarizeTrack } from '../ride-summary/summarize-trac
 import type { TrackPoint } from '../ride-summary/track-point';
 import { useTrackRecording } from '../ride-summary/useTrackRecording';
 import { useRoute } from '../routing/useRoute';
+import { saveRoute } from '../saved-routes/api';
+import { usePendingRouteLaunchStore } from '../saved-routes/pendingRouteLaunch.store';
 import { AddressSearchBar } from '../search/AddressSearchBar';
 import { reverseGeocode } from '../search/api';
 import { useSettingsStore } from '../settings/settings.store';
+import { useAppHeaderStore } from './appHeader.store';
+import { APP_HEADER_HEIGHT } from './AppHeader.styles';
 import { GuidanceMapButton } from './GuidanceMapButton';
 import { HeadingBadge } from './HeadingBadge';
 import { loadNavigationMapStyle } from './loadMapStyle';
@@ -48,15 +52,21 @@ import { MapModeButton } from './MapModeButton';
 import { styles } from './MapScreen.styles';
 import { RecenterButton } from './RecenterButton';
 import { MAP_OVERLAY_BUTTON_SIZE } from './RecenterButton.styles';
+import { RouteLabelCard } from './RouteLabelCard';
 import { RouteLine } from './RouteLine';
 import { RouteStatusChips } from './RouteStatusChips';
 import { StopMarkers } from './StopMarkers';
-import { TripSummaryCard } from './TripSummaryCard';
+import { stopKey, TripSummaryCard } from './TripSummaryCard';
 import { useUserLocationPermission } from './useUserLocationPermission';
 import { useVehiclePosition } from './useVehiclePosition';
 import { VehicleMarker } from './VehicleMarker';
 
 const FLY_TO_DURATION_MS = 1200;
+
+// Rayon d'arrivée : en dessous, la précision GPS elle-même (quelques mètres)
+// rend la distinction "pas encore arrivé" / "arrivé" peu fiable de toute
+// façon — pas d'intérêt à viser plus précis.
+const ARRIVAL_THRESHOLD_METERS = 20;
 
 // Même arrondi que le libellé de repli du backend (search.service.ts) : un
 // arrêt ajouté par appui long s'affiche avec ce libellé immédiatement, avant
@@ -64,6 +74,8 @@ const FLY_TO_DURATION_MS = 1200;
 const PLACEHOLDER_LABEL_DECIMALS = 4;
 
 const MAP_MODE_UNAVAILABLE_MESSAGE = 'Mode 3D bientôt disponible.';
+const ROUTE_SAVED_MESSAGE = 'Itinéraire enregistré.';
+const ROUTE_SAVE_FAILED_MESSAGE = "L'enregistrement de l'itinéraire a échoué.";
 // Hors périmètre V1 (détection de chute/SOS, voir CLAUDE.md) — jamais une
 // vraie alerte envoyée à d'autres motards.
 const SIGNAL_UNAVAILABLE_MESSAGE = 'Alerte motards bientôt disponible.';
@@ -71,6 +83,9 @@ const SIGNAL_UNAVAILABLE_MESSAGE = 'Alerte motards bientôt disponible.';
 // (RouteStatusChips) se positionne juste en dessous, sans dépendre d'une
 // mesure de layout.
 const SEARCH_BAR_HEIGHT = 48;
+// Même logique : hauteur approximative de la ligne de puces, pour positionner
+// RouteLabelCard juste en dessous.
+const ROUTE_STATUS_CHIPS_HEIGHT = 32;
 
 // Hissé hors du composant : une identité stable évite de re-notifier la vue
 // native à chaque rendu pour une valeur qui, elle, ne change jamais.
@@ -107,9 +122,23 @@ export function MapScreen(): React.JSX.Element {
   // toujours de premier point du trajet — elle ne fait jamais partie de cette
   // liste, qui ne contient que les arrêts choisis.
   const [stops, setStops] = useState<readonly AddressSuggestionDto[]>([]);
+  // Catégorie choisie par l'utilisateur pour une étape (voir ReorderableStepRow)
+  // — jamais déduite ou devinée, clé = identité de l'arrêt pour suivre un
+  // réordonnement.
+  const [stopTags, setStopTags] = useState<ReadonlyMap<string, string>>(new globalThis.Map());
+  const [isSavingRoute, setIsSavingRoute] = useState(false);
+  const [isRouteSaved, setIsRouteSaved] = useState(false);
+  // Toute modification des arrêts invalide la sauvegarde précédente : ce
+  // n'est plus le même itinéraire.
+  useEffect(() => {
+    setIsRouteSaved(false);
+  }, [stops]);
   const [isFollowing, setIsFollowing] = useState(true);
   const [isNavigating, setIsNavigating] = useState(false);
   const [isDirectionsExpanded, setIsDirectionsExpanded] = useState(false);
+  // Reflète le panneau de la barre de recherche (résultats/historique), voir
+  // AddressSearchBar.onPanelVisibleChange — pilote l'overlay de fermeture.
+  const [isSearchPanelOpen, setIsSearchPanelOpen] = useState(false);
   const [rideSummary, setRideSummary] = useState<
     { readonly summary: RideSummary; readonly points: readonly TrackPoint[] } | undefined
   >(undefined);
@@ -131,7 +160,12 @@ export function MapScreen(): React.JSX.Element {
   // Tenu ici plutôt que dans la barre de recherche : l'identité de la ref est
   // stable, la passer en prop ne provoque aucun rendu supplémentaire.
   const { positionRef: originRef, hasFix: hasGpsFix } = useLastKnownPosition(permission === 'granted');
+  const gpsStatus =
+    permission === 'denied' ? 'off' : permission === 'checking' ? 'checking' : hasGpsFix ? 'ok' : 'searching';
+  const setHeaderVisible = useAppHeaderStore((state) => state.setVisible);
+  const setHeaderGpsStatus = useAppHeaderStore((state) => state.setGpsStatus);
   const avoidHighways = useSettingsStore((state) => state.avoidHighways);
+  const setAvoidHighways = useSettingsStore((state) => state.setAvoidHighways);
   const voiceEnabled = useSettingsStore((state) => state.voiceEnabled);
   const setVoiceEnabled = useSettingsStore((state) => state.setVoiceEnabled);
   const { route, isComputing: isComputingRoute, error: routeError } = useRoute(
@@ -162,6 +196,15 @@ export function MapScreen(): React.JSX.Element {
       tabBarStyle: isNavigating ? { ...TAB_BAR_STYLE, display: 'none' } : TAB_BAR_STYLE,
     });
   }, [isNavigating, navigation]);
+
+  // AppHeader est désormais rendu une seule fois par le layout des onglets
+  // (commun aux trois), pas ici — cette carte reste la seule à connaître le
+  // statut GPS réel et si le guidage actif doit le masquer, relayés via le
+  // store plutôt que par un rendu local.
+  useEffect(() => {
+    setHeaderVisible(!isNavigating);
+    setHeaderGpsStatus(gpsStatus);
+  }, [isNavigating, gpsStatus, setHeaderVisible, setHeaderGpsStatus]);
 
   useEffect(() => {
     let cancelled = false;
@@ -221,7 +264,90 @@ export function MapScreen(): React.JSX.Element {
 
   const handleRemoveStop = (index: number): void => {
     setStops((previous) => previous.filter((_stop, i) => i !== index));
+    setStopTags((previous) => {
+      const stop = stops[index];
+      if (stop === undefined) {
+        return previous;
+      }
+      const next = new globalThis.Map(previous);
+      next.delete(stopKey(stop));
+      return next;
+    });
   };
+
+  const handleReorderStop = (fromIndex: number, toIndex: number): void => {
+    setStops((previous) => {
+      const next = [...previous];
+      const [moved] = next.splice(fromIndex, 1);
+      if (moved === undefined) {
+        return previous;
+      }
+      next.splice(toIndex, 0, moved);
+      return next;
+    });
+  };
+
+  const handleSetStopTag = (stop: AddressSuggestionDto, tag: string | undefined): void => {
+    setStopTags((previous) => {
+      const next = new globalThis.Map(previous);
+      if (tag === undefined) {
+        next.delete(stopKey(stop));
+      } else {
+        next.set(stopKey(stop), tag);
+      }
+      return next;
+    });
+  };
+
+  // Sauvegarde l'itinéraire planifié (liste d'arrêts), pas une trace GPS —
+  // distinct de la sauvegarde de balade (RideSummaryScreen), qui n'existe
+  // qu'une fois la route effectivement roulée.
+  const handleSaveRoute = (): void => {
+    const origin = originRef.current;
+    if (origin === undefined || route === undefined) {
+      return;
+    }
+
+    setIsSavingRoute(true);
+    withFreshAccessToken((accessToken) =>
+      saveRoute(accessToken, {
+        name: undefined,
+        waypoints: [
+          { latitude: origin.latitude, longitude: origin.longitude },
+          ...stops.map((stop) => ({ latitude: stop.latitude, longitude: stop.longitude })),
+        ],
+        avoidHighways,
+        distanceMeters: route.distanceMeters,
+        durationSeconds: route.durationSeconds,
+      }),
+    )
+      .then(() => {
+        setIsRouteSaved(true);
+        snackbar.show(ROUTE_SAVED_MESSAGE);
+      })
+      .catch(() => {
+        snackbar.show(ROUTE_SAVE_FAILED_MESSAGE);
+      })
+      .finally(() => {
+        setIsSavingRoute(false);
+      });
+  };
+
+  // Relance d'un itinéraire enregistré depuis l'onglet Balades (voir
+  // pendingRouteLaunch.store.ts) : consommé à chaque reprise de focus de cet
+  // écran, pas seulement au montage — les onglets restent montés en
+  // arrière-plan dans Expo Router, un effet au montage seul ne se
+  // redéclencherait pas en revenant sur cet onglet.
+  useFocusEffect(
+    useCallback(() => {
+      const launch = usePendingRouteLaunchStore.getState().consume();
+      if (launch === undefined) {
+        return;
+      }
+      setStops(launch.stops);
+      setAvoidHighways(launch.avoidHighways);
+    }, []),
+  );
 
   // Appui long plutôt qu'un simple tap : un tap seul reste disponible pour
   // interagir avec la carte (sélectionner un marqueur, etc.) sans risquer
@@ -333,6 +459,18 @@ export function MapScreen(): React.JSX.Element {
     }
   };
 
+  // Arrivée détectée : termine le guidage automatiquement plutôt que
+  // d'attendre une action explicite (voir handleExit, qui calcule déjà le
+  // résumé et affiche RideSummaryScreen — donc la proposition de sauvegarde
+  // dans l'historique dès l'arrivée, sans étape supplémentaire). isNavigating
+  // dans la condition suffit à éviter un second déclenchement : handleExit
+  // le repasse à false, ce qui désarme l'effet au rendu suivant.
+  useEffect(() => {
+    if (isNavigating && progress !== undefined && progress.distanceRemaining <= ARRIVAL_THRESHOLD_METERS) {
+      handleExit();
+    }
+  }, [isNavigating, progress]);
+
   // L'utilisateur reprend la main sur la caméra : on lâche le suivi, sinon le
   // prochain point GPS ramènerait la vue et rendrait la carte impossible à
   // explorer.
@@ -417,9 +555,41 @@ export function MapScreen(): React.JSX.Element {
           panneau de suggestions/historique ne soit jamais recouvert par la
           ligne de puces, même quand il déborde par-dessus. */}
       {!isNavigating ? (
-        <View style={[styles.routeStatusChipsWrapper, { top: insets.top + spacing.sm + SEARCH_BAR_HEIGHT + spacing.sm }]}>
+        <View
+          style={[
+            styles.routeStatusChipsWrapper,
+            { top: insets.top + APP_HEADER_HEIGHT + spacing.sm + SEARCH_BAR_HEIGHT + spacing.sm },
+          ]}
+        >
           <RouteStatusChips />
         </View>
+      ) : null}
+
+      {!isNavigating && stops.length > 0 ? (
+        <RouteLabelCard
+          stops={stops}
+          top={
+            insets.top +
+            APP_HEADER_HEIGHT +
+            spacing.sm +
+            SEARCH_BAR_HEIGHT +
+            spacing.sm +
+            ROUTE_STATUS_CHIPS_HEIGHT +
+            spacing.sm
+          }
+        />
+      ) : null}
+
+      {!isNavigating && isSearchPanelOpen ? (
+        <Pressable
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+          style={styles.searchDismissOverlay}
+          onPress={() => {
+            searchInputRef.current?.blur();
+            Keyboard.dismiss();
+          }}
+        />
       ) : null}
 
       {!isNavigating ? (
@@ -428,6 +598,8 @@ export function MapScreen(): React.JSX.Element {
           onSelect={handleAddStop}
           originRef={originRef}
           onUnavailableFeature={snackbar.show}
+          topOffset={APP_HEADER_HEIGHT}
+          onPanelVisibleChange={setIsSearchPanelOpen}
         />
       ) : null}
 
@@ -466,10 +638,16 @@ export function MapScreen(): React.JSX.Element {
           isComputing={isComputingRoute}
           error={routeError}
           onRemoveStop={handleRemoveStop}
+          onReorderStop={handleReorderStop}
+          stopTags={stopTags}
+          onSetStopTag={handleSetStopTag}
           onAddStop={() => {
             searchInputRef.current?.focus();
           }}
           onStart={handleStart}
+          onSaveRoute={handleSaveRoute}
+          isSavingRoute={isSavingRoute}
+          isRouteSaved={isRouteSaved}
           onLayout={handleTripSummaryCardLayout}
         />
       ) : null}
