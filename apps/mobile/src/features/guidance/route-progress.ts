@@ -1,4 +1,4 @@
-import type { GeoPointDto, ManeuverDto, RouteGeometryDto } from '@roadtalk/contracts';
+import type { GeoPointDto, ManeuverDto, RouteGeometryDto, SpeedLimitSegmentDto } from '@roadtalk/contracts';
 import {
   degrees,
   distanceBetweenMeters,
@@ -87,6 +87,7 @@ export interface RouteProgressModel {
   // dériver une durée restante proportionnelle à la distance restante.
   readonly totalDuration: Seconds;
   readonly maneuverProgress: readonly ManeuverProgress[];
+  readonly speedLimits: readonly SpeedLimitSegmentDto[];
 }
 
 export function buildRouteProgressModel(route: RouteGeometryDto): RouteProgressModel {
@@ -104,6 +105,7 @@ export function buildRouteProgressModel(route: RouteGeometryDto): RouteProgressM
     totalDistance,
     totalDuration: seconds(route.durationSeconds),
     maneuverProgress,
+    speedLimits: route.speedLimits,
   };
 }
 
@@ -136,6 +138,23 @@ export interface RouteProgress {
   readonly durationRemaining: Seconds;
   readonly nextManeuver: ManeuverDto | undefined;
   readonly distanceToNextManeuver: Meters | undefined;
+  // Limitation du tronçon en cours. undefined quand elle est inconnue du
+  // moteur de routage, ou hors trajet : la limitation d'une route qu'on ne
+  // suit plus ne dit rien de celle où l'on roule.
+  readonly speedLimitMps: number | undefined;
+}
+
+// Un point à la jonction de deux portions appartient à la suivante (`<` sur
+// endIndex) : c'est la limitation de la portion qui commence qui compte, y
+// compris quand elle est inconnue. Seul le dernier point du tracé, qui n'a
+// pas de portion suivante, garde celle de la portion qui s'achève.
+function findSpeedLimitMps(model: RouteProgressModel, pathIndex: number): number | undefined {
+  const isLastPoint = pathIndex === model.path.length - 1;
+  return model.speedLimits.find(
+    (segment) =>
+      pathIndex >= segment.startIndex &&
+      (pathIndex < segment.endIndex || (isLastPoint && pathIndex === segment.endIndex)),
+  )?.speedLimitMps;
 }
 
 // `>` strict, pas `>=` : une manœuvre exactement à la position courante vient
@@ -156,5 +175,7 @@ export function computeRouteProgress(model: RouteProgressModel, position: GeoPoi
     nextManeuver: upcoming?.maneuver,
     distanceToNextManeuver:
       upcoming !== undefined ? meters(Math.max(0, upcoming.cumulativeDistance - progress)) : undefined,
+    speedLimitMps:
+      distance > OFF_ROUTE_THRESHOLD_METERS ? undefined : findSpeedLimitMps(model, index),
   };
 }

@@ -22,14 +22,30 @@ export const styles = StyleSheet.create({
   },
   speedRow: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
+    alignItems: 'center',
     gap: spacing.xs,
   },
   speedValue: {
     fontSize: 32,
   },
-  speedLabels: {
-    paddingBottom: 2,
+  // Rond comme un panneau de limitation, mais cerclé en neutre : le rouge
+  // reste réservé à l'alerte (dépassement), jamais porté en permanence.
+  speedLimitSign: {
+    marginLeft: 'auto',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 2,
+    borderColor: colors.textSecondary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  speedLimitSignExceeded: {
+    borderColor: colors.danger,
+  },
+  speedLimitValue: {
+    fontSize: 14,
+    letterSpacing: 0,
   },
   telemetryRow: {
     flexDirection: 'row',

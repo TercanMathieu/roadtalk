@@ -4,13 +4,23 @@ import { Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { colors, spacing, Text } from '../../ui';
-import { formatArrivalTime, formatDistanceKm, formatDuration, formatSpeedKmh } from '../routing/format';
+import {
+  formatArrivalTime,
+  formatDistanceKm,
+  formatDuration,
+  formatSpeedKmh,
+  formatSpeedLimitKmh,
+  isOverSpeedLimit,
+} from '../routing/format';
 import { styles } from './GuidanceFooter.styles';
 
 const ICON_SIZE = 16;
 
 interface Props {
   readonly speedMps: number | undefined;
+  // Limitation du tronçon en cours — undefined quand elle est inconnue :
+  // aucun panneau affiché plutôt qu'une valeur supposée.
+  readonly speedLimitMps: number | undefined;
   readonly distanceRemainingMeters: number;
   readonly durationRemainingSeconds: number;
   // Détection seule (voir route-progress.ts, OFF_ROUTE_THRESHOLD_METERS) —
@@ -30,6 +40,7 @@ interface Props {
 // réelle, télémétrie du trajet, actions dimensionnées pour les gants.
 export function GuidanceFooter({
   speedMps,
+  speedLimitMps,
   distanceRemainingMeters,
   durationRemainingSeconds,
   isOffRoute,
@@ -37,6 +48,7 @@ export function GuidanceFooter({
   onSignalPress,
 }: Props): React.JSX.Element {
   const insets = useSafeAreaInsets();
+  const isSpeeding = isOverSpeedLimit(speedMps, speedLimitMps);
 
   return (
     <View style={[styles.footer, { paddingBottom: spacing.md + insets.bottom }]}>
@@ -47,17 +59,28 @@ export function GuidanceFooter({
       ) : null}
 
       <View style={styles.speedRow}>
-        <Text variant="display" tabularNums style={styles.speedValue}>
+        <Text
+          variant="display"
+          tabularNums
+          color={isSpeeding ? colors.danger : colors.textPrimary}
+          style={styles.speedValue}
+        >
           {formatSpeedKmh(speedMps)}
         </Text>
-        <View style={styles.speedLabels}>
-          <Text variant="monoBold" color={colors.textDense}>
-            KM/H
-          </Text>
-          <Text variant="monoBold" color={colors.accentLight}>
-            RÉEL
-          </Text>
-        </View>
+        <Text variant="monoBold" color={colors.textDense}>
+          KM/H
+        </Text>
+        {speedLimitMps !== undefined ? (
+          <View
+            accessible
+            accessibilityLabel={`Limitation ${formatSpeedLimitKmh(speedLimitMps)} kilomètres par heure`}
+            style={[styles.speedLimitSign, isSpeeding ? styles.speedLimitSignExceeded : null]}
+          >
+            <Text variant="monoBold" tabularNums color={colors.textPrimary} style={styles.speedLimitValue}>
+              {formatSpeedLimitKmh(speedLimitMps)}
+            </Text>
+          </View>
+        ) : null}
       </View>
 
       <View style={styles.telemetryRow}>
