@@ -16,15 +16,15 @@ interface Props {
 const DEFAULT_MESSAGE = 'Aperçu visuel — données fictives, fonctionnalité pas encore branchée.';
 
 // Marqueur systématique de tout écran (ou section d'écran) dont le contenu
-// est un aperçu du design plutôt qu'une donnée réelle — bande rouge à
-// gauche, toujours en haut de ce qu'elle couvre, jamais mélangée à une
+// est un aperçu du design plutôt qu'une donnée réelle — bandeau neutre (le
+// rouge est réservé aux alertes), toujours en haut de ce qu'il couvre, jamais mélangé à une
 // donnée réelle sans marqueur (voir aussi <MockTag /> pour une valeur isolée
 // au sein d'un écran par ailleurs réel).
 export function MockBanner({ message = DEFAULT_MESSAGE }: Props): React.JSX.Element {
   return (
     <View style={styles.banner}>
-      <MaterialCommunityIcons name="flask-outline" size={18} color={colors.danger} />
-      <Text variant="label" color={colors.danger} style={styles.text}>
+      <MaterialCommunityIcons name="flask-outline" size={18} color={colors.textSecondary} />
+      <Text variant="label" color={colors.textSecondary} style={styles.text}>
         {message}
       </Text>
     </View>

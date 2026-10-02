@@ -172,6 +172,49 @@ describe('RoutesService (intégration, vraie Postgres via Testcontainers)', () =
     expect(list[0]?.name).toBe('Nouveau nom');
   });
 
+  it('setFavoriteForAuthor met en favori un itinéraire, non favori à sa création', async () => {
+    const user = await createUser('routes-favorite');
+    const authorId = toUserId(user.id);
+
+    const saved = await service.save({
+      authorId,
+      name: 'À refaire',
+      waypoints: [paris, lyon],
+      routingOptions: { avoidHighways: false, avoidTolls: false },
+      distanceMeters: undefined,
+      durationSeconds: undefined,
+    });
+    if (!saved.ok) throw new Error('setup failed');
+    expect(saved.value.isFavorite).toBe(false);
+
+    const updated = await service.setFavoriteForAuthor(saved.value.id, authorId, true);
+    expect(updated).toBe(true);
+
+    const list = await service.listForAuthor(authorId);
+    expect(list[0]?.isFavorite).toBe(true);
+  });
+
+  it("setFavoriteForAuthor renvoie false pour l'itinéraire d'un autre utilisateur (IDOR)", async () => {
+    const owner = await createUser('routes-favorite-owner');
+    const stranger = await createUser('routes-favorite-stranger');
+
+    const saved = await service.save({
+      authorId: toUserId(owner.id),
+      name: 'Itinéraire privé',
+      waypoints: [paris, lyon],
+      routingOptions: { avoidHighways: false, avoidTolls: false },
+      distanceMeters: undefined,
+      durationSeconds: undefined,
+    });
+    if (!saved.ok) throw new Error('setup failed');
+
+    const updated = await service.setFavoriteForAuthor(saved.value.id, toUserId(stranger.id), true);
+
+    expect(updated).toBe(false);
+    const detail = await service.getForAuthor(saved.value.id, toUserId(owner.id));
+    expect(detail?.isFavorite).toBe(false);
+  });
+
   it("renameForAuthor renvoie false pour l'itinéraire d'un autre utilisateur (IDOR)", async () => {
     const owner = await createUser('routes-rename-owner');
     const stranger = await createUser('routes-rename-stranger');

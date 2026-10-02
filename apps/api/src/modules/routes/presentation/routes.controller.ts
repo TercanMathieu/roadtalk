@@ -20,6 +20,8 @@ import {
   routeSchema,
   type SaveRouteRequestDto,
   saveRouteRequestSchema,
+  type SetRouteFavoriteRequestDto,
+  setRouteFavoriteRequestSchema,
 } from '@roadtalk/contracts';
 import { degrees, meters, seconds, toRouteId, type UserId } from '@roadtalk/domain-shared';
 
@@ -42,6 +44,7 @@ function toRouteDto(route: Route): RouteDto {
     ...(route.distanceMeters !== undefined ? { distanceMeters: route.distanceMeters } : {}),
     ...(route.durationSeconds !== undefined ? { durationSeconds: route.durationSeconds } : {}),
     ...(route.elevationGainMeters !== undefined ? { elevationGainMeters: route.elevationGainMeters } : {}),
+    isFavorite: route.isFavorite,
     createdAt: route.createdAt,
   };
 }
@@ -116,6 +119,19 @@ export class RoutesController {
     @Body(new ZodValidationPipe(renameRouteRequestSchema)) body: RenameRouteRequestDto,
   ): Promise<void> {
     const updated = await this.routes.renameForAuthor(toRouteId(id), authorId, body.name);
+    if (!updated) {
+      throw new AppException(ErrorCode.SAVED_ROUTE_NOT_FOUND, 'Itinéraire introuvable');
+    }
+  }
+
+  @Patch(':id/favorite')
+  @HttpCode(204)
+  async setFavorite(
+    @CurrentUserId() authorId: UserId,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodValidationPipe(setRouteFavoriteRequestSchema)) body: SetRouteFavoriteRequestDto,
+  ): Promise<void> {
+    const updated = await this.routes.setFavoriteForAuthor(toRouteId(id), authorId, body.isFavorite);
     if (!updated) {
       throw new AppException(ErrorCode.SAVED_ROUTE_NOT_FOUND, 'Itinéraire introuvable');
     }

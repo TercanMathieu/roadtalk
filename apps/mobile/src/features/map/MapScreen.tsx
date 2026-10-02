@@ -22,7 +22,8 @@ import { colors, Snackbar, spacing, TAB_BAR_STYLE, Text, useSnackbar } from '../
 import { withFreshAccessToken } from '../auth/auth.store';
 import { DirectionsSheet } from '../guidance/DirectionsSheet';
 import { GuidanceFooter } from '../guidance/GuidanceFooter';
-import { ManeuverBanner } from '../guidance/ManeuverBanner';
+import { type GuidanceStatus, ManeuverBanner } from '../guidance/ManeuverBanner';
+import { ManeuverMarker } from '../guidance/ManeuverMarker';
 import { OFF_ROUTE_THRESHOLD_METERS } from '../guidance/route-progress';
 import { useManeuverSteps, useRouteProgress } from '../guidance/useRouteProgress';
 import { RideSummaryScreen } from '../ride-summary/RideSummaryScreen';
@@ -52,7 +53,6 @@ import { MapModeButton } from './MapModeButton';
 import { styles } from './MapScreen.styles';
 import { RecenterButton } from './RecenterButton';
 import { MAP_OVERLAY_BUTTON_SIZE } from './RecenterButton.styles';
-import { RouteLabelCard } from './RouteLabelCard';
 import { RouteLine } from './RouteLine';
 import { RouteStatusChips } from './RouteStatusChips';
 import { StopMarkers } from './StopMarkers';
@@ -67,6 +67,12 @@ const FLY_TO_DURATION_MS = 1200;
 // rend la distinction "pas encore arrivé" / "arrivé" peu fiable de toute
 // façon — pas d'intérêt à viser plus précis.
 const ARRIVAL_THRESHOLD_METERS = 20;
+// Recalcul hors itinéraire — voir l'effet correspondant dans MapScreen.
+const REROUTE_DELAY_MS = 4000;
+const REROUTE_COOLDOWN_MS = 15000;
+// Même seuil que la fiabilité du cap (useVehiclePosition) : en dessous, la
+// moto est considérée à l'arrêt.
+const REROUTE_MIN_SPEED_MPS = 1.39;
 
 // Même arrondi que le libellé de repli du backend (search.service.ts) : un
 // arrêt ajouté par appui long s'affiche avec ce libellé immédiatement, avant
@@ -76,16 +82,10 @@ const PLACEHOLDER_LABEL_DECIMALS = 4;
 const MAP_MODE_UNAVAILABLE_MESSAGE = 'Mode 3D bientôt disponible.';
 const ROUTE_SAVED_MESSAGE = 'Itinéraire enregistré.';
 const ROUTE_SAVE_FAILED_MESSAGE = "L'enregistrement de l'itinéraire a échoué.";
-// Hors périmètre V1 (détection de chute/SOS, voir CLAUDE.md) — jamais une
-// vraie alerte envoyée à d'autres motards.
-const SIGNAL_UNAVAILABLE_MESSAGE = 'Alerte motards bientôt disponible.';
 // Hauteur de la barre de recherche (bar.minHeight) : la ligne de puces
 // (RouteStatusChips) se positionne juste en dessous, sans dépendre d'une
 // mesure de layout.
 const SEARCH_BAR_HEIGHT = 48;
-// Même logique : hauteur approximative de la ligne de puces, pour positionner
-// RouteLabelCard juste en dessous.
-const ROUTE_STATUS_CHIPS_HEIGHT = 32;
 
 // Hissé hors du composant : une identité stable évite de re-notifier la vue
 // native à chaque rendu pour une valeur qui, elle, ne change jamais.
@@ -168,11 +168,17 @@ export function MapScreen(): React.JSX.Element {
   const setAvoidHighways = useSettingsStore((state) => state.setAvoidHighways);
   const voiceEnabled = useSettingsStore((state) => state.voiceEnabled);
   const setVoiceEnabled = useSettingsStore((state) => state.setVoiceEnabled);
+  // Incrémenté pour redemander un tracé depuis la position actuelle (voir
+  // l'effet de recalcul hors itinéraire plus bas, et useRoute).
+  const [rerouteToken, setRerouteToken] = useState(0);
+  const offRouteSinceRef = useRef<number | undefined>(undefined);
+  const lastRerouteAtRef = useRef(0);
   const { route, isComputing: isComputingRoute, error: routeError } = useRoute(
     stops,
     originRef,
     hasGpsFix,
     avoidHighways,
+    rerouteToken,
   );
   // Deuxième souscription à la même position (VehicleMarker en tient déjà
   // une) : réutilise le flux natif partagé avec <Camera trackUserLocation>
@@ -511,6 +517,48 @@ export function MapScreen(): React.JSX.Element {
   // présence de TripSummaryCard.
   const mapModeButtonBottom = (recenterButtonBottom ?? spacing.lg) + MAP_OVERLAY_BUTTON_SIZE + spacing.sm;
   const isOffRoute = progress !== undefined && progress.distanceFromRoute > OFF_ROUTE_THRESHOLD_METERS;
+  const guidanceStatus: GuidanceStatus =
+    isNavigating && isComputingRoute ? 'rerouting' : isOffRoute ? 'off-route' : 'on-route';
+
+  // Recalcul automatique : sorti du tracé depuis quelques secondes et en
+  // mouvement, on redemande un itinéraire depuis la position actuelle vers
+  // les arrêts restants. Évalué à chaque point GPS (`progress` change), sans
+  // minuteur : à l'arrêt, aucun point n'arrive et rien ne tourne (C1).
+  //   - délai : un écart bref (bruit GPS, dépassement large) ne doit pas
+  //     déclencher de requête ;
+  //   - en mouvement seulement : garé à 100 m de la route, on resterait sinon
+  //     à recalculer en boucle un trajet identique ;
+  //   - pause entre deux recalculs : laisse le temps au nouveau tracé
+  //     d'arriver et d'être rejoint, et borne le trafic réseau si le
+  //     recalcul échoue (C3).
+  useEffect(() => {
+    if (!isNavigating || !isOffRoute) {
+      offRouteSinceRef.current = undefined;
+      return;
+    }
+
+    const now = Date.now();
+    offRouteSinceRef.current ??= now;
+    const isMoving = (vehiclePosition?.speedMps ?? 0) >= REROUTE_MIN_SPEED_MPS;
+    if (
+      isComputingRoute ||
+      !isMoving ||
+      now - offRouteSinceRef.current < REROUTE_DELAY_MS ||
+      now - lastRerouteAtRef.current < REROUTE_COOLDOWN_MS
+    ) {
+      return;
+    }
+
+    lastRerouteAtRef.current = now;
+    offRouteSinceRef.current = undefined;
+    // Les arrêts déjà atteints sortent du trajet, sauf le dernier : la
+    // destination finale reste toujours à rejoindre.
+    const { stopsReached } = progress;
+    if (stopsReached > 0) {
+      setStops((previous) => previous.slice(Math.min(stopsReached, previous.length - 1)));
+    }
+    setRerouteToken((token) => token + 1);
+  }, [isNavigating, isOffRoute, progress, isComputingRoute, vehiclePosition?.speedMps]);
 
   return (
     <View style={styles.container}>
@@ -543,6 +591,9 @@ export function MapScreen(): React.JSX.Element {
             d'arrêt, elles-mêmes sous le marqueur de position — toujours
             visible en dernier, jamais caché par le tracé ou un arrêt. */}
         {route !== undefined ? <RouteLine path={route.path} /> : null}
+        {isNavigating && guidanceStatus === 'on-route' && progress?.nextManeuver !== undefined ? (
+          <ManeuverMarker point={progress.nextManeuver.point} />
+        ) : null}
         {stops.length > 0 ? (
           <StopMarkers points={stops.map((stop) => ({ latitude: stop.latitude, longitude: stop.longitude }))} />
         ) : null}
@@ -563,21 +614,6 @@ export function MapScreen(): React.JSX.Element {
         >
           <RouteStatusChips />
         </View>
-      ) : null}
-
-      {!isNavigating && stops.length > 0 ? (
-        <RouteLabelCard
-          stops={stops}
-          top={
-            insets.top +
-            APP_HEADER_HEIGHT +
-            spacing.sm +
-            SEARCH_BAR_HEIGHT +
-            spacing.sm +
-            ROUTE_STATUS_CHIPS_HEIGHT +
-            spacing.sm
-          }
-        />
       ) : null}
 
       {!isNavigating && isSearchPanelOpen ? (
@@ -652,14 +688,19 @@ export function MapScreen(): React.JSX.Element {
         />
       ) : null}
 
-      {isNavigating && progress?.nextManeuver !== undefined && progress.distanceToNextManeuver !== undefined ? (
+      {isNavigating && progress !== undefined ? (
         <View
           style={styles.maneuverBannerWrapper}
           onLayout={(event) => {
             setManeuverBannerHeight(event.nativeEvent.layout.height);
           }}
         >
-          <ManeuverBanner maneuver={progress.nextManeuver} distanceMeters={progress.distanceToNextManeuver} />
+          <ManeuverBanner
+            status={guidanceStatus}
+            maneuver={progress.nextManeuver}
+            distanceMeters={progress.distanceToNextManeuver}
+            thenManeuver={progress.thenManeuver}
+          />
         </View>
       ) : null}
 
@@ -695,19 +736,16 @@ export function MapScreen(): React.JSX.Element {
           speedLimitMps={progress.speedLimitMps}
           distanceRemainingMeters={progress.distanceRemaining}
           durationRemainingSeconds={progress.durationRemaining}
-          isOffRoute={isOffRoute}
           onOpenMenu={() => {
             setIsDirectionsExpanded(true);
-          }}
-          onSignalPress={() => {
-            snackbar.show(SIGNAL_UNAVAILABLE_MESSAGE);
           }}
         />
       ) : null}
 
       <DirectionsSheet
         visible={isNavigating && isDirectionsExpanded}
-        steps={maneuverSteps}
+        steps={maneuverSteps.slice(progress?.nextManeuverIndex ?? maneuverSteps.length)}
+        distanceToFirstMeters={progress?.distanceToNextManeuver}
         onClose={() => {
           setIsDirectionsExpanded(false);
         }}

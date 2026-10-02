@@ -9,7 +9,7 @@ interface Props {
   readonly icon: React.ComponentProps<typeof MaterialCommunityIcons>['name'];
   readonly title: string;
   readonly subtitle: string;
-  // Repli sur textDense : accentLight signale un statut actif/positif
+  // Repli sur textSecondary : accentLight signale un statut actif/positif
   // (ex. "guidage vocal activé"), réservé aux lignes qui en ont un à montrer.
   readonly subtitleColor?: string;
   readonly children: React.ReactNode;
@@ -22,13 +22,13 @@ export function SettingsRow({ icon, title, subtitle, subtitleColor, children }: 
     <View style={styles.row}>
       <View style={styles.leading}>
         <View style={styles.iconSquare}>
-          <MaterialCommunityIcons name={icon} size={20} color={colors.textPrimary} />
+          <MaterialCommunityIcons name={icon} size={20} color={colors.textSecondary} />
         </View>
         <View style={styles.texts}>
           <Text variant="body" numberOfLines={1}>
             {title}
           </Text>
-          <Text variant="mono" color={subtitleColor ?? colors.textDense} numberOfLines={1}>
+          <Text variant="caption" color={subtitleColor ?? colors.textSecondary} numberOfLines={1}>
             {subtitle}
           </Text>
         </View>

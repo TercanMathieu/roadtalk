@@ -1,3 +1,4 @@
+import type { GeoPoint } from '@roadtalk/domain-shared';
 import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 
@@ -40,12 +41,27 @@ function buildGpxXml(trackName: string, points: readonly TrackPoint[]): string {
   ].join('');
 }
 
-// Génère un GPX réel à partir du tracé réellement enregistré (voir
-// useTrackRecording) et ouvre la feuille de partage native — aucun serveur
-// impliqué, fonctionne hors réseau (C3).
-export async function exportTrackAsGpx(trackName: string, points: readonly TrackPoint[]): Promise<void> {
-  const xml = buildGpxXml(trackName, points);
-  const file = new File(Paths.cache, `${slugify(trackName)}.gpx`);
+// Itinéraire pas encore roulé : un tracé sans horodatage ni altitude (il n'y
+// a pas eu de mesure), au même format <trk> pour rester lisible par les
+// mêmes applications qu'une balade exportée.
+function buildRouteGpxXml(routeName: string, path: readonly GeoPoint[]): string {
+  const trackPoints = path
+    .map((point) => `<trkpt lat="${String(point.latitude)}" lon="${String(point.longitude)}"></trkpt>`)
+    .join('');
+
+  return [
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    '<gpx version="1.1" creator="RoadTalk" xmlns="http://www.topografix.com/GPX/1/1">',
+    '<trk>',
+    `<name>${escapeXml(routeName)}</name>`,
+    `<trkseg>${trackPoints}</trkseg>`,
+    '</trk>',
+    '</gpx>',
+  ].join('');
+}
+
+async function shareGpx(name: string, xml: string): Promise<void> {
+  const file = new File(Paths.cache, `${slugify(name)}.gpx`);
   file.create({ overwrite: true });
   file.write(xml);
 
@@ -58,4 +74,17 @@ export async function exportTrackAsGpx(trackName: string, points: readonly Track
     mimeType: 'application/gpx+xml',
     dialogTitle: 'Exporter la trace GPX',
   });
+}
+
+// Génère un GPX réel à partir du tracé réellement enregistré (voir
+// useTrackRecording) et ouvre la feuille de partage native — aucun serveur
+// impliqué, fonctionne hors réseau (C3).
+export async function exportTrackAsGpx(trackName: string, points: readonly TrackPoint[]): Promise<void> {
+  await shareGpx(trackName, buildGpxXml(trackName, points));
+}
+
+// Même partage pour un itinéraire enregistré, à partir du chemin calculé par
+// le moteur de routage (voir useBaladeGeometry).
+export async function exportRouteAsGpx(routeName: string, path: readonly GeoPoint[]): Promise<void> {
+  await shareGpx(routeName, buildRouteGpxXml(routeName, path));
 }

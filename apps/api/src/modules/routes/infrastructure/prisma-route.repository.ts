@@ -38,6 +38,7 @@ function toRoute(row: RouteRow): Route {
     distanceMeters: row.distanceMeters !== null ? meters(row.distanceMeters) : undefined,
     durationSeconds: row.durationSeconds !== null ? seconds(row.durationSeconds) : undefined,
     elevationGainMeters: row.elevationGainMeters !== null ? meters(row.elevationGainMeters) : undefined,
+    isFavorite: row.isFavorite,
     createdAt: timestampMs(row.createdAt.getTime()),
   };
 }
@@ -59,6 +60,7 @@ export class PrismaRouteRepository implements RouteRepository {
         distanceMeters: route.distanceMeters ?? null,
         durationSeconds: route.durationSeconds ?? null,
         elevationGainMeters: route.elevationGainMeters ?? null,
+        isFavorite: route.isFavorite,
       },
     });
   }
@@ -86,6 +88,11 @@ export class PrismaRouteRepository implements RouteRepository {
 
   async renameByIdForAuthor(id: RouteId, authorId: UserId, name: string): Promise<boolean> {
     const { count } = await this.prisma.route.updateMany({ where: { id, authorId }, data: { name } });
+    return count > 0;
+  }
+
+  async setFavoriteByIdForAuthor(id: RouteId, authorId: UserId, isFavorite: boolean): Promise<boolean> {
+    const { count } = await this.prisma.route.updateMany({ where: { id, authorId }, data: { isFavorite } });
     return count > 0;
   }
 }

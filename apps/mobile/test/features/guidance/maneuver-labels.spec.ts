@@ -14,7 +14,7 @@ describe('getManeuverLabel', () => {
       point,
     };
 
-    expect(getManeuverLabel(maneuver)).toBe('Au rond-point, prenez la 2e sortie');
+    expect(getManeuverLabel(maneuver)).toBe('Rond-point, 2e sortie');
   });
 
   it('utilise l’ordinal "1re", pas "1e", pour la première sortie', () => {
@@ -25,7 +25,7 @@ describe('getManeuverLabel', () => {
       point,
     };
 
-    expect(getManeuverLabel(maneuver)).toBe('Au rond-point, prenez la 1re sortie');
+    expect(getManeuverLabel(maneuver)).toBe('Rond-point, 1re sortie');
   });
 
   it('retombe sur le texte générique de sortie de rond-point sans numéro', () => {

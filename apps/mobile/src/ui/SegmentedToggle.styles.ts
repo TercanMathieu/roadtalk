@@ -5,24 +5,24 @@ import { colors, spacing } from './tokens';
 export const styles = StyleSheet.create({
   track: {
     flexDirection: 'row',
-    backgroundColor: colors.surfaceMuted,
-    borderRadius: 8,
-    padding: spacing.xs,
+    backgroundColor: colors.surfaceRow,
+    borderRadius: 10,
+    padding: 3,
   },
   option: {
     minWidth: 48,
     alignItems: 'center',
     paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: 6,
+    paddingVertical: 6,
+    borderRadius: 8,
   },
   optionActive: {
-    backgroundColor: colors.accentLight,
+    backgroundColor: colors.surfaceMuted,
   },
   optionPressed: {
     opacity: 0.85,
   },
   optionLabel: {
-    fontSize: 11,
+    fontSize: 13,
   },
 });

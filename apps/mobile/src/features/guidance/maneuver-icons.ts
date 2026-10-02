@@ -1,23 +1,28 @@
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { MaterialIcons } from '@expo/vector-icons';
 import type { ManeuverType } from '@roadtalk/contracts';
 import type React from 'react';
 
-type IconName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
+type IconName = React.ComponentProps<typeof MaterialIcons>['name'];
 
+// Pictogrammes de signalisation (jeu MaterialIcons) : la flèche part du bas,
+// monte, puis tourne — le dessin d'un vrai virage, lisible sans le texte. Les
+// simples flèches diagonales utilisées avant ne distinguaient pas "tournez à
+// droite" de "légèrement à droite".
 const MANEUVER_ICONS: Record<ManeuverType, IconName> = {
   start: 'navigation',
-  continue: 'arrow-up-bold',
-  'slight-right': 'arrow-top-right-thin',
-  right: 'arrow-top-right-thick',
-  'sharp-right': 'arrow-right-bold',
-  'slight-left': 'arrow-top-left-thin',
-  left: 'arrow-top-left-thick',
-  'sharp-left': 'arrow-left-bold',
-  uturn: 'arrow-u-up-left-bold',
-  roundabout: 'rotate-right',
-  merge: 'call-merge',
-  ferry: 'ferry',
-  destination: 'flag-checkered',
+  continue: 'straight',
+  'slight-right': 'turn-slight-right',
+  right: 'turn-right',
+  'sharp-right': 'turn-sharp-right',
+  'slight-left': 'turn-slight-left',
+  left: 'turn-left',
+  'sharp-left': 'turn-sharp-left',
+  uturn: 'u-turn-left',
+  // Sens giratoire français (anti-horaire, sortie sur la droite).
+  roundabout: 'roundabout-right',
+  merge: 'merge',
+  ferry: 'directions-ferry',
+  destination: 'sports-score',
 };
 
 export function getManeuverIcon(type: ManeuverType): IconName {

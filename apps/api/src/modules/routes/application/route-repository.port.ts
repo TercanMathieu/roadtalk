@@ -17,4 +17,5 @@ export interface RouteRepository {
   deleteByIdForAuthor(id: RouteId, authorId: UserId): Promise<boolean>;
   // Même sémantique de retour que deleteByIdForAuthor, pour la même raison.
   renameByIdForAuthor(id: RouteId, authorId: UserId, name: string): Promise<boolean>;
+  setFavoriteByIdForAuthor(id: RouteId, authorId: UserId, isFavorite: boolean): Promise<boolean>;
 }

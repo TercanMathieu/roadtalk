@@ -16,6 +16,18 @@ export function itemId(item: BaladeItem): string {
   return item.kind === 'ride' ? item.ride.id : item.route.id;
 }
 
+export function itemIsFavorite(item: BaladeItem): boolean {
+  return item.kind === 'ride' ? item.ride.isFavorite : item.route.isFavorite;
+}
+
+// Un itinéraire jamais nommé reçoit un nom d'après sa date de création —
+// affiché seulement, jamais enregistré tant que l'utilisateur ne le modifie pas.
+export function itemName(item: BaladeItem, formatDate: (timestampMs: number) => string): string {
+  return item.kind === 'ride'
+    ? item.ride.name
+    : (item.route.name ?? `Itinéraire du ${formatDate(item.route.createdAt)}`);
+}
+
 export function confirmDeleteBaladeItem(item: BaladeItem, name: string, onConfirm: () => void): void {
   const what = item.kind === 'ride' ? 'cette balade' : 'cet itinéraire';
   Alert.alert(`Supprimer ${what} ?`, `« ${name} » sera définitivement supprimée.`, [

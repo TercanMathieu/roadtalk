@@ -11,7 +11,7 @@ import { ReorderableStepRow } from './ReorderableStepRow';
 import { styles } from './TripSummaryCard.styles';
 
 const ICON_SIZE = 18;
-const START_ICON_SIZE = 18;
+const START_ICON_SIZE = 20;
 // Distance de glissement (px) pour une transition complète ouvert ↔ réduit.
 const DRAG_RANGE = 140;
 // Vitesse de relâchement (px/ms) au-delà de laquelle un geste franc (flick)
@@ -87,9 +87,6 @@ export function TripSummaryCard({
   isRouteSaved,
   onLayout,
 }: Props): React.JSX.Element {
-  // +1 : la position de départ compte comme premier jalon, bien qu'elle ne
-  // fasse jamais partie de `stops` (voir MapScreen).
-  const waypointCount = stops.length + 1;
   const [isCollapsed, setIsCollapsed] = useState(false);
   // true seulement pendant un geste de glissement actif (doigt posé) — en
   // dehors de ça, un seul des deux contenus (complet ou réduit) est monté,
@@ -173,13 +170,14 @@ export function TripSummaryCard({
     outputRange: [expandedHeightRef.current || 1, collapsedHeightRef.current || 1],
   });
 
+  const destinationLabel = stops.at(-1)?.label ?? '';
+
   const collapsedSummary = (
     <>
-      <MaterialCommunityIcons name="routes" size={18} color={colors.textPrimary} />
-      <Text variant="mono" color={colors.textDense} numberOfLines={1} style={styles.collapsedLabel}>
-        {waypointCount} {waypointCount > 1 ? 'jalons' : 'jalon'}
+      <Text variant="captionStrong" numberOfLines={1} style={styles.collapsedLabel}>
+        {destinationLabel}
         {route !== undefined
-          ? ` · ${formatDistanceKm(route.distanceMeters)} · ${formatDuration(route.durationSeconds)}`
+          ? ` · ${formatDuration(route.durationSeconds)} · ${formatDistanceKm(route.distanceMeters)}`
           : ''}
       </Text>
       <MaterialCommunityIcons name="chevron-up" size={20} color={colors.textSecondary} />
@@ -188,30 +186,35 @@ export function TripSummaryCard({
 
   const fullContent = (
     <>
-      <View style={styles.header}>
-        <View style={styles.headerTitle}>
-          <MaterialCommunityIcons name="routes" size={18} color={colors.textPrimary} />
-          <Text variant="title" style={styles.headerTitleText}>
-            Feuille de route
+      {/* L'essentiel d'abord, lisible d'un coup d'œil : durée, distance,
+          heure d'arrivée. La liste des étapes vient ensuite. */}
+      {error !== undefined ? (
+        <Text variant="body" color={colors.danger} style={styles.message}>
+          {error}
+        </Text>
+      ) : route === undefined || isComputing ? (
+        <Text variant="body" color={colors.textSecondary} style={styles.message}>
+          Calcul de l'itinéraire…
+        </Text>
+      ) : (
+        <View style={styles.summary}>
+          <Text variant="title" tabularNums style={styles.summaryDuration}>
+            {formatDuration(route.durationSeconds)}
+          </Text>
+          <Text variant="body" color={colors.textSecondary} tabularNums style={styles.summaryDetails}>
+            {`${formatDistanceKm(route.distanceMeters)} · arrivée ${formatArrivalTime(route.durationSeconds)}`}
           </Text>
         </View>
-        <View style={styles.jalonsBadge}>
-          <Text variant="mono" color={colors.textDense}>
-            {waypointCount} {waypointCount > 1 ? 'jalons' : 'jalon'}
-          </Text>
-        </View>
-      </View>
+      )}
 
       <View style={styles.stepsList}>
         <View style={styles.stepRow}>
           <View style={[styles.stepBadge, styles.originBadge]}>
-            <Text variant="monoBold" color={colors.accentLight}>
-              D
-            </Text>
+            <MaterialCommunityIcons name="crosshairs-gps" size={14} color={colors.textSecondary} />
           </View>
           <View style={styles.stepTexts}>
-            <Text variant="mono" color={colors.textDense} style={styles.stepLabel}>
-              Départ immédiat
+            <Text variant="caption" color={colors.textSecondary} style={styles.stepLabel}>
+              Départ
             </Text>
             {/* Pas de géocodage inverse de la position de l'utilisateur
                 lui-même (coûteux, jamais utilisé ailleurs) : un libellé
@@ -234,13 +237,11 @@ export function TripSummaryCard({
                 style={styles.stepRow}
               >
                 <View style={[styles.stepBadge, styles.terminusBadge]}>
-                  <Text variant="monoBold" color={colors.onAccentLight}>
-                    A
-                  </Text>
+                  <MaterialCommunityIcons name="flag-checkered" size={14} color={colors.onAccentLight} />
                 </View>
                 <View style={styles.stepTexts}>
-                  <Text variant="mono" color={colors.textDense} style={styles.stepLabel}>
-                    Terminus
+                  <Text variant="caption" color={colors.textSecondary} style={styles.stepLabel}>
+                    Arrivée
                   </Text>
                   <Text variant="body" numberOfLines={1} style={styles.stepAddress}>
                     {stop.label}
@@ -288,54 +289,33 @@ export function TripSummaryCard({
           onPress={onAddStop}
           style={({ pressed }) => [styles.addStopButton, pressed ? styles.addStopButtonPressed : null]}
         >
-          <MaterialCommunityIcons name="map-marker-plus-outline" size={ICON_SIZE} color={colors.textPrimary} />
-          <Text variant="monoBold" color={colors.textPrimary}>
+          <View style={styles.addStopIcon}>
+            <MaterialCommunityIcons name="plus" size={ICON_SIZE} color={colors.textSecondary} />
+          </View>
+          <Text variant="body" color={colors.textSecondary} style={styles.stepAddress}>
             Ajouter un arrêt
           </Text>
         </Pressable>
       </View>
 
-      {error !== undefined ? (
-        <Text variant="body" color={colors.danger} style={styles.message}>
-          {error}
-        </Text>
-      ) : null}
-
-      {error === undefined && (isComputing || route === undefined) ? (
-        <Text variant="body" color={colors.textSecondary} style={styles.message}>
-          Calcul de l'itinéraire…
-        </Text>
-      ) : null}
-
-      {error === undefined && route !== undefined ? (
-        <View style={styles.stats}>
-          <Stat value={formatDistanceKm(route.distanceMeters)} caption="Distance" />
-          <Stat value={formatDuration(route.durationSeconds)} caption="Durée estimée" />
-          <Stat value={formatArrivalTime(route.durationSeconds)} caption="Arrivée" />
-        </View>
-      ) : null}
-
       <View style={styles.actionsRow}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={isRouteSaved ? 'Itinéraire déjà enregistré' : 'Enregistrer le trip'}
+          accessibilityLabel={isRouteSaved ? 'Itinéraire déjà enregistré' : "Enregistrer l'itinéraire"}
           accessibilityState={{ disabled: route === undefined || isSavingRoute || isRouteSaved }}
           disabled={route === undefined || isSavingRoute || isRouteSaved}
           onPress={onSaveRoute}
           style={({ pressed }) => [
             styles.saveRouteButton,
-            route === undefined || isSavingRoute || isRouteSaved ? styles.startButtonDisabled : null,
+            route === undefined || isSavingRoute ? styles.startButtonDisabled : null,
             pressed ? styles.startButtonPressed : null,
           ]}
         >
           <MaterialCommunityIcons
             name={isRouteSaved ? 'check-circle-outline' : 'content-save-outline'}
             size={START_ICON_SIZE}
-            color={colors.textPrimary}
+            color={isRouteSaved ? colors.accent : colors.textPrimary}
           />
-          <Text variant="label" color={colors.textPrimary} style={styles.saveRouteButtonLabel}>
-            {isRouteSaved ? 'Enregistré' : 'Enregistrer'}
-          </Text>
         </Pressable>
 
         <Pressable
@@ -416,24 +396,6 @@ export function TripSummaryCard({
           {fullContent}
         </View>
       )}
-    </View>
-  );
-}
-
-interface StatProps {
-  readonly value: string;
-  readonly caption: string;
-}
-
-function Stat({ value, caption }: StatProps): React.JSX.Element {
-  return (
-    <View style={styles.stat}>
-      <Text variant="monoBold" color={colors.textPrimary} style={styles.statValue}>
-        {value}
-      </Text>
-      <Text variant="mono" color={colors.textDense}>
-        {caption}
-      </Text>
     </View>
   );
 }
