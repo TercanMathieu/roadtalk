@@ -5,6 +5,8 @@ import { Modal, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { colors, Snackbar, spacing, Text, useSnackbar } from '../../ui';
+import { withFreshAccessToken } from '../auth/auth.store';
+import { saveRide } from '../history/api';
 import { formatDuration } from '../routing/format';
 import {
   formatClockTime,
@@ -22,6 +24,8 @@ import type { TrackPoint } from './track-point';
 const ICON_SIZE = 18;
 const COMING_SOON_MESSAGE = 'Fonctionnalité bientôt disponible.';
 const GPX_EXPORT_FAILED_MESSAGE = "L'export GPX a échoué.";
+const RIDE_SAVED_MESSAGE = 'Balade sauvegardée dans l’historique.';
+const RIDE_SAVE_FAILED_MESSAGE = 'La sauvegarde a échoué.';
 
 interface Props {
   readonly summary: RideSummary;
@@ -43,6 +47,8 @@ export function RideSummaryScreen({ summary, points, onClose }: Props): React.JS
   const last = points[points.length - 1];
   const [rideName, setRideName] = useState(() => defaultRideName(first?.recordedAt ?? Date.now()));
   const [isExportingGpx, setIsExportingGpx] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
 
   const handleExportGpx = (): void => {
     setIsExportingGpx(true);
@@ -52,6 +58,32 @@ export function RideSummaryScreen({ summary, points, onClose }: Props): React.JS
       })
       .finally(() => {
         setIsExportingGpx(false);
+      });
+  };
+
+  const handleSaveToHistory = (): void => {
+    if (first === undefined || last === undefined) {
+      return;
+    }
+
+    setIsSaving(true);
+    withFreshAccessToken((accessToken) =>
+      saveRide(accessToken, {
+        name: rideName,
+        startedAt: first.recordedAt,
+        endedAt: last.recordedAt,
+        track: points,
+      }),
+    )
+      .then(() => {
+        setIsSaved(true);
+        snackbar.show(RIDE_SAVED_MESSAGE);
+      })
+      .catch(() => {
+        snackbar.show(RIDE_SAVE_FAILED_MESSAGE);
+      })
+      .finally(() => {
+        setIsSaving(false);
       });
   };
 
@@ -228,14 +260,22 @@ export function RideSummaryScreen({ summary, points, onClose }: Props): React.JS
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Sauvegarder dans l'historique"
-              onPress={() => {
-                snackbar.show(COMING_SOON_MESSAGE);
-              }}
-              style={({ pressed }) => [styles.secondaryAction, pressed ? styles.rowPressed : null]}
+              accessibilityState={{ disabled: isSaving || isSaved || points.length === 0 }}
+              disabled={isSaving || isSaved || points.length === 0}
+              onPress={handleSaveToHistory}
+              style={({ pressed }) => [
+                styles.secondaryAction,
+                isSaved ? styles.primaryActionDisabled : null,
+                pressed ? styles.rowPressed : null,
+              ]}
             >
-              <MaterialCommunityIcons name="archive-outline" size={ICON_SIZE} color={colors.textPrimary} />
+              <MaterialCommunityIcons
+                name={isSaved ? 'check-circle-outline' : 'archive-outline'}
+                size={ICON_SIZE}
+                color={colors.textPrimary}
+              />
               <Text variant="title" style={styles.secondaryActionLabel}>
-                Sauvegarder dans l'historique
+                {isSaved ? 'Sauvegardée' : isSaving ? 'Sauvegarde…' : "Sauvegarder dans l'historique"}
               </Text>
             </Pressable>
           </View>
