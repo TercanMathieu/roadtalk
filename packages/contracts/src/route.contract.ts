@@ -27,3 +27,25 @@ export const routeSchema = z.object({
 
 export type GeoPointDto = z.infer<typeof geoPointSchema>;
 export type RouteDto = z.infer<typeof routeSchema>;
+
+// Requête de sauvegarde d'un itinéraire planifié (pas encore roulé) — source
+// toujours 'planned' pour ce flux (l'import GPX, F6, n'est pas construit).
+// distance/durée sont celles que le client vient de recevoir du même moteur
+// de routage — voir le commentaire du modèle Prisma pour le raisonnement.
+export const saveRouteRequestSchema = z.object({
+  name: z.string().trim().min(1).max(120).optional(),
+  waypoints: z.array(geoPointSchema).min(2),
+  routingOptions: routingOptionsSchema,
+  distanceMeters: z.number().nonnegative().optional(),
+  durationSeconds: z.number().nonnegative().optional(),
+});
+
+export type SaveRouteRequestDto = z.infer<typeof saveRouteRequestSchema>;
+
+export const routeListSchema = z.array(routeSchema);
+
+export const renameRouteRequestSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+});
+
+export type RenameRouteRequestDto = z.infer<typeof renameRouteRequestSchema>;

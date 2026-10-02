@@ -67,6 +67,10 @@ export const ERROR_CATALOG: Record<ErrorCode, ErrorDefinition> = {
     status: HttpStatus.NOT_FOUND,
     message: 'Balade introuvable',
   },
+  [ErrorCode.SAVED_ROUTE_NOT_FOUND]: {
+    status: HttpStatus.NOT_FOUND,
+    message: 'Itinéraire introuvable',
+  },
   [ErrorCode.VALIDATION_ERROR]: {
     status: HttpStatus.BAD_REQUEST,
     message: 'Requête invalide',

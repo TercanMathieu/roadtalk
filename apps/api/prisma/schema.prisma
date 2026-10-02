@@ -27,6 +27,7 @@ model User {
   refreshTokens         RefreshToken[]
   addressHistoryEntries AddressHistoryEntry[]
   rides                 Ride[]
+  routes                Route[]
 
   @@map("users")
 }
@@ -121,4 +122,41 @@ model Ride {
   // de l'écran Historique/Balades.
   @@index([ownerId, startedAt])
   @@map("rides")
+}
+
+model Route {
+  id       String @id @default(uuid()) @db.Uuid
+  authorId String @map("author_id") @db.Uuid
+  author   User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  // Nullable (voir domain/route.entity.ts) : l'utilisateur peut sauvegarder
+  // un itinéraire sans lui donner de nom.
+  name String?
+
+  // Séquence ordonnée de points, pas de colonne géométrique PostGIS — même
+  // raisonnement que Ride.track (voir ADR-002) : aucune requête spatiale en
+  // V1, un JSONB suffit à reconstruire l'itinéraire pour le recalculer ou
+  // l'afficher.
+  waypoints Json
+
+  avoidHighways Boolean @map("avoid_highways")
+  avoidTolls    Boolean @map("avoid_tolls")
+
+  // 'planned' | 'gpx_import' (RouteSource, domain/route.entity.ts).
+  source String
+
+  // Calculés côté client au moment de la sauvegarde (le même moteur de
+  // routage vient de répondre quelques instants plus tôt) — jamais
+  // recalculés par resauter sur Valhalla ici, contrairement au résumé de
+  // Ride : un écart mineur sur une distance affichée n'a pas les mêmes
+  // conséquences qu'un tracé GPS dont l'authenticité importe.
+  distanceMeters      Float?   @map("distance_meters")
+  durationSeconds     Float?   @map("duration_seconds")
+  elevationGainMeters Float?   @map("elevation_gain_meters")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  // Tri par récence, filtré par auteur.
+  @@index([authorId, createdAt])
+  @@map("routes")
 }

@@ -71,18 +71,24 @@ export function createRoute(params: {
   });
 }
 
+// elevationGainMeters optionnel, contrairement à distance/durée : un
+// itinéraire planifié (pas encore roulé) a sa distance et sa durée dès la
+// réponse du moteur de routage, mais aucun dénivelé réel tant qu'aucune
+// trace GPS n'existe — pas de valeur inventée (ex. 0) pour combler ce vide.
 export function withComputedMetrics(
   route: Route,
   metrics: {
     readonly distanceMeters: Meters;
     readonly durationSeconds: Seconds;
-    readonly elevationGainMeters: Meters;
+    readonly elevationGainMeters?: Meters;
   },
 ): Route {
   return {
     ...route,
     distanceMeters: metrics.distanceMeters,
     durationSeconds: metrics.durationSeconds,
-    elevationGainMeters: metrics.elevationGainMeters,
+    ...(metrics.elevationGainMeters !== undefined
+      ? { elevationGainMeters: metrics.elevationGainMeters }
+      : {}),
   };
 }

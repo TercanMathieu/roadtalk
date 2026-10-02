@@ -33,3 +33,8 @@ export function toUserId(value: string): UserId {
 export function toRideId(value: string): RideId {
   return value as RideId;
 }
+
+// Même rôle que toUserId, pour RouteId.
+export function toRouteId(value: string): RouteId {
+  return value as RouteId;
+}
