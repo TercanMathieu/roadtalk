@@ -112,14 +112,10 @@ export const styles = StyleSheet.create({
     fontSize: 14,
   },
   closeButton: {
-    minWidth: MIN_TOUCH_TARGET_DP,
-    minHeight: MIN_TOUCH_TARGET_DP,
+    minWidth: 36,
+    minHeight: 36,
     alignItems: 'center',
     justifyContent: 'center',
-    // Compense le padding de la ligne pour que la cible tactile déborde
-    // jusqu'au bord plutôt que de rajouter à la largeur totale.
-    marginVertical: -spacing.md,
-    marginRight: -spacing.md,
   },
   addStopButton: {
     flexDirection: 'row',
@@ -150,7 +146,12 @@ export const styles = StyleSheet.create({
   statValue: {
     fontSize: 16,
   },
+  actionsRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
   startButton: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -173,5 +174,18 @@ export const styles = StyleSheet.create({
   startButtonLabel: {
     fontSize: 14,
     textTransform: 'uppercase',
+  },
+  saveRouteButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    minHeight: 44,
+    paddingHorizontal: spacing.sm,
+    borderRadius: 10,
+    backgroundColor: colors.surfaceRaised,
+  },
+  saveRouteButtonLabel: {
+    fontSize: 12,
   },
 });

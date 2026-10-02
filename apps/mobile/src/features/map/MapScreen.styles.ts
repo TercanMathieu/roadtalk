@@ -44,6 +44,16 @@ export const styles = StyleSheet.create({
     left: spacing.md,
     right: spacing.md,
   },
+  // Invisible : capte le premier toucher hors de la barre de recherche pour
+  // refermer son panneau (résultats/historique), sans rien faire d'autre —
+  // le toucher suivant au même endroit agit normalement.
+  searchDismissOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
   snackbarWrapper: {
     position: 'absolute',
     left: spacing.md,

@@ -2,7 +2,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import type { AddressHistoryEntryDto, AddressSuggestionDto } from '@roadtalk/contracts';
 import type React from 'react';
 import type { Ref, RefObject } from 'react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Keyboard, Pressable, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -15,6 +15,7 @@ import { useAddressHistory } from './useAddressHistory';
 import { useAddressSearch } from './useAddressSearch';
 
 const ICON_SIZE = 19;
+const HISTORY_ICON_SIZE = 16;
 
 interface Props {
   readonly onSelect: (suggestion: AddressSuggestionDto) => void;
@@ -29,12 +30,27 @@ interface Props {
   // "Ajouter un arrêt" de TripSummaryCard) — React 19 accepte `ref` comme
   // une prop normale sur les composants fonction, pas besoin de forwardRef.
   readonly ref?: Ref<TextInput>;
+  // Décalage additionnel sous la zone de sécurité (ex. hauteur d'AppHeader,
+  // quand affiché) — 0 par défaut, pas une valeur que ce composant devine
+  // lui-même puisqu'il ne sait pas si un en-tête est monté au-dessus.
+  readonly topOffset?: number;
+  // Signale au parent quand le panneau (résultats ou historique) est visible
+  // — lui permet de superposer une zone invisible qui referme le panneau au
+  // premier toucher ailleurs à l'écran (voir MapScreen).
+  readonly onPanelVisibleChange?: (visible: boolean) => void;
 }
 
 const VOICE_SEARCH_UNAVAILABLE_MESSAGE = 'Recherche vocale bientôt disponible.';
 const GPX_IMPORT_UNAVAILABLE_MESSAGE = 'Import GPX bientôt disponible.';
 
-export function AddressSearchBar({ onSelect, originRef, onUnavailableFeature, ref }: Props): React.JSX.Element {
+export function AddressSearchBar({
+  onSelect,
+  originRef,
+  onUnavailableFeature,
+  ref,
+  topOffset = 0,
+  onPanelVisibleChange,
+}: Props): React.JSX.Element {
   const insets = useSafeAreaInsets();
   const { query, results, isSearching, error, setQuery, clear } = useAddressSearch(originRef);
   const history = useAddressHistory();
@@ -65,8 +81,12 @@ export function AddressSearchBar({ onSelect, originRef, onUnavailableFeature, re
   // vide) — jamais les deux à la fois.
   const hasPanel = showingSearch || isFocused;
 
+  useEffect(() => {
+    onPanelVisibleChange?.(hasPanel);
+  }, [hasPanel, onPanelVisibleChange]);
+
   return (
-    <View style={[styles.container, { top: insets.top + spacing.sm }]}>
+    <View style={[styles.container, { top: insets.top + topOffset + spacing.sm }]}>
       <View style={styles.row}>
         <View style={styles.searchColumn}>
           <View style={styles.bar}>
@@ -190,7 +210,7 @@ function SearchPanelContent({
             pressed ? styles.suggestionPressed : null,
           ]}
         >
-          <Text variant="body" numberOfLines={1}>
+          <Text variant="body" numberOfLines={1} style={styles.suggestionLabel}>
             {suggestion.label}
           </Text>
           {suggestion.context !== null ? (
@@ -254,9 +274,9 @@ function HistoryPanelContent({
             pressed ? styles.suggestionPressed : null,
           ]}
         >
-          <MaterialCommunityIcons name="history" size={ICON_SIZE} color={colors.textSecondary} />
+          <MaterialCommunityIcons name="history" size={HISTORY_ICON_SIZE} color={colors.textSecondary} />
           <View style={styles.historyText}>
-            <Text variant="body" numberOfLines={1}>
+            <Text variant="body" numberOfLines={1} style={styles.suggestionLabel}>
               {entry.label}
             </Text>
             {entry.context !== null ? (

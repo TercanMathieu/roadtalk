@@ -6,5 +6,7 @@ export const spacing = {
   xl: 32,
 } as const;
 
-// Cibles tactiles ≥ 64dp : utilisation avec des gants, aucun geste fin (section 8).
-export const MIN_TOUCH_TARGET_DP = 64;
+// Standard iOS/Android (44dp) — l'app n'est pas pensée pour un usage ganté,
+// voir CLAUDE.md C2 (décision explicite, 2026-10-01, annule l'ancien
+// plancher de 64dp motivé par les gants).
+export const MIN_TOUCH_TARGET_DP = 44;

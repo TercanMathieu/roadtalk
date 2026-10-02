@@ -1,6 +1,6 @@
 import { StyleSheet } from 'react-native';
 
-import { colors, MIN_TOUCH_TARGET_DP, spacing } from '../../ui';
+import { colors, spacing } from '../../ui';
 
 export const styles = StyleSheet.create({
   container: {
@@ -71,12 +71,15 @@ export const styles = StyleSheet.create({
     padding: spacing.md,
   },
   suggestion: {
-    minHeight: MIN_TOUCH_TARGET_DP,
+    minHeight: 44,
     justifyContent: 'center',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
     borderTopWidth: 1,
     borderTopColor: colors.border,
+  },
+  suggestionLabel: {
+    fontSize: 14,
   },
   historySuggestion: {
     flexDirection: 'row',
@@ -93,6 +96,7 @@ export const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   suggestionContext: {
-    marginTop: 2,
+    marginTop: 1,
+    fontSize: 11,
   },
 });

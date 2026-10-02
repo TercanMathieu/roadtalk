@@ -1,9 +1,11 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import type React from 'react';
 import { Alert, Pressable, ScrollView, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { colors, MockBanner, MockTag, SegmentedToggle, Snackbar, Text, Toggle, useSnackbar } from '../../ui';
+import { colors, MockBanner, MockTag, SegmentedToggle, Snackbar, spacing, Text, Toggle, useSnackbar } from '../../ui';
 import { useAuthStore, withFreshAccessToken } from '../auth/auth.store';
+import { APP_HEADER_HEIGHT } from '../map/AppHeader.styles';
 import { deleteMe } from '../profile/api';
 import { CacheGaugeCard } from './CacheGaugeCard';
 import { PilotStatusBanner } from './PilotStatusBanner';
@@ -23,6 +25,7 @@ const COMING_SOON_MESSAGE = 'Fonctionnalité bientôt disponible.';
 const DELETE_FAILED_MESSAGE = 'La suppression a échoué, réessaie plus tard.';
 
 export function SettingsScreen(): React.JSX.Element {
+  const insets = useSafeAreaInsets();
   const username = useAuthStore((state) => state.username);
   const provider = useAuthStore((state) => state.provider);
   const distanceUnit = useSettingsStore((state) => state.distanceUnit);
@@ -67,7 +70,10 @@ export function SettingsScreen(): React.JSX.Element {
   const providerLabel = provider === 'apple' ? 'Apple' : 'Google';
 
   return (
-    <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={styles.scroll}
+      contentContainerStyle={[styles.content, { paddingTop: insets.top + APP_HEADER_HEIGHT + spacing.sm }]}
+    >
       <PilotStatusBanner />
 
       <View style={styles.section}>

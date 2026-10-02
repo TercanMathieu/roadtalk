@@ -10,16 +10,19 @@ export const styles = StyleSheet.create({
     padding: spacing.xs,
   },
   option: {
-    minWidth: 54,
+    minWidth: 48,
     alignItems: 'center',
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
-    borderRadius: 4,
+    borderRadius: 6,
   },
   optionActive: {
     backgroundColor: colors.accentLight,
   },
+  optionPressed: {
+    opacity: 0.85,
+  },
   optionLabel: {
-    fontSize: 18,
+    fontSize: 11,
   },
 });

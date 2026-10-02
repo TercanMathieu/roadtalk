@@ -7,6 +7,7 @@ import { Animated, LayoutAnimation, PanResponder, Pressable, View } from 'react-
 
 import { colors, Text } from '../../ui';
 import { formatArrivalTime, formatDistanceKm, formatDuration } from '../routing/format';
+import { ReorderableStepRow } from './ReorderableStepRow';
 import { styles } from './TripSummaryCard.styles';
 
 const ICON_SIZE = 18;
@@ -43,11 +44,28 @@ interface Props {
   readonly isComputing: boolean;
   readonly error: string | undefined;
   readonly onRemoveStop: (index: number) => void;
+  // Permute deux étapes intermédiaires (jamais le terminus, toujours fixe en
+  // dernière position) — voir ReorderableStepRow.
+  readonly onReorderStop: (fromIndex: number, toIndex: number) => void;
+  // Clé = identité de l'arrêt (label+coords, voir ReorderableStepRow), pas
+  // son index : la catégorie doit suivre l'arrêt quand on le réordonne.
+  readonly stopTags: ReadonlyMap<string, string>;
+  readonly onSetStopTag: (stop: AddressSuggestionDto, tag: string | undefined) => void;
   // Focus la barre de recherche (voir MapScreen, searchInputRef) — pas de
   // sélecteur dédié, ajouter un arrêt passe toujours par la recherche.
   readonly onAddStop: () => void;
   readonly onStart: () => void;
+  // Sauvegarde l'itinéraire planifié (pas encore roulé) — distinct de
+  // "Sauvegarder dans l'historique" sur RideSummaryScreen, qui sauvegarde
+  // une trace GPS réelle une fois la balade terminée.
+  readonly onSaveRoute: () => void;
+  readonly isSavingRoute: boolean;
+  readonly isRouteSaved: boolean;
   readonly onLayout: (event: LayoutChangeEvent) => void;
+}
+
+export function stopKey(stop: AddressSuggestionDto): string {
+  return `${stop.label}-${String(stop.latitude)}-${String(stop.longitude)}`;
 }
 
 // Écran de préparation, pas de guidage (DA section 8) : la feuille de route
@@ -59,8 +77,14 @@ export function TripSummaryCard({
   isComputing,
   error,
   onRemoveStop,
+  onReorderStop,
+  stopTags,
+  onSetStopTag,
   onAddStop,
   onStart,
+  onSaveRoute,
+  isSavingRoute,
+  isRouteSaved,
   onLayout,
 }: Props): React.JSX.Element {
   // +1 : la position de départ compte comme premier jalon, bien qu'elle ne
@@ -201,39 +225,60 @@ export function TripSummaryCard({
         {stops.map((stop, index) => {
           const isLast = index === stops.length - 1;
 
+          // Terminus : toujours fixe en dernière position, pas de glisser-
+          // déposer ni de catégorie (c'est la destination, pas une étape).
+          if (isLast) {
+            return (
+              <View
+                key={`${String(index)}-${stop.label}-${String(stop.latitude)}-${String(stop.longitude)}`}
+                style={styles.stepRow}
+              >
+                <View style={[styles.stepBadge, styles.terminusBadge]}>
+                  <Text variant="monoBold" color={colors.onAccentLight}>
+                    A
+                  </Text>
+                </View>
+                <View style={styles.stepTexts}>
+                  <Text variant="mono" color={colors.textDense} style={styles.stepLabel}>
+                    Terminus
+                  </Text>
+                  <Text variant="body" numberOfLines={1} style={styles.stepAddress}>
+                    {stop.label}
+                  </Text>
+                </View>
+                <Pressable
+                  onPress={() => {
+                    onRemoveStop(index);
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Retirer l'arrêt ${stop.label}`}
+                  style={styles.closeButton}
+                >
+                  <MaterialCommunityIcons name="close" size={ICON_SIZE} color={colors.textSecondary} />
+                </Pressable>
+              </View>
+            );
+          }
+
           return (
-            <View
+            <ReorderableStepRow
               // index en tête : deux arrêts peuvent légitimement partager la
               // même adresse (ex. boucle qui repasse par le même point) —
               // seul l'index garantit l'unicité, label/coords ne servent
               // qu'à la lisibilité en cas d'inspection.
               key={`${String(index)}-${stop.label}-${String(stop.latitude)}-${String(stop.longitude)}`}
-              style={styles.stepRow}
-            >
-              <View style={[styles.stepBadge, isLast ? styles.terminusBadge : null]}>
-                <Text variant="monoBold" color={isLast ? colors.onAccentLight : colors.textPrimary}>
-                  {isLast ? 'A' : index + 1}
-                </Text>
-              </View>
-              <View style={styles.stepTexts}>
-                <Text variant="mono" color={colors.textDense} style={styles.stepLabel}>
-                  {isLast ? 'Terminus' : `Étape ${String(index + 1)}`}
-                </Text>
-                <Text variant="body" numberOfLines={1} style={styles.stepAddress}>
-                  {stop.label}
-                </Text>
-              </View>
-              <Pressable
-                onPress={() => {
-                  onRemoveStop(index);
-                }}
-                accessibilityRole="button"
-                accessibilityLabel={`Retirer l'arrêt ${stop.label}`}
-                style={styles.closeButton}
-              >
-                <MaterialCommunityIcons name="close" size={ICON_SIZE} color={colors.textSecondary} />
-              </Pressable>
-            </View>
+              index={index}
+              count={stops.length - 1}
+              stop={stop}
+              tag={stopTags.get(stopKey(stop))}
+              onRemove={() => {
+                onRemoveStop(index);
+              }}
+              onReorder={onReorderStop}
+              onSetTag={(tag) => {
+                onSetStopTag(stop, tag);
+              }}
+            />
           );
         })}
 
@@ -270,23 +315,47 @@ export function TripSummaryCard({
         </View>
       ) : null}
 
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Démarrer le guidage"
-        accessibilityState={{ disabled: route === undefined }}
-        disabled={route === undefined}
-        onPress={onStart}
-        style={({ pressed }) => [
-          styles.startButton,
-          route === undefined ? styles.startButtonDisabled : null,
-          pressed ? styles.startButtonPressed : null,
-        ]}
-      >
-        <Text variant="title" color={colors.onAccentLight} style={styles.startButtonLabel}>
-          Démarrer le guidage
-        </Text>
-        <MaterialCommunityIcons name="navigation-variant" size={START_ICON_SIZE} color={colors.onAccentLight} />
-      </Pressable>
+      <View style={styles.actionsRow}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={isRouteSaved ? 'Itinéraire déjà enregistré' : 'Enregistrer le trip'}
+          accessibilityState={{ disabled: route === undefined || isSavingRoute || isRouteSaved }}
+          disabled={route === undefined || isSavingRoute || isRouteSaved}
+          onPress={onSaveRoute}
+          style={({ pressed }) => [
+            styles.saveRouteButton,
+            route === undefined || isSavingRoute || isRouteSaved ? styles.startButtonDisabled : null,
+            pressed ? styles.startButtonPressed : null,
+          ]}
+        >
+          <MaterialCommunityIcons
+            name={isRouteSaved ? 'check-circle-outline' : 'content-save-outline'}
+            size={START_ICON_SIZE}
+            color={colors.textPrimary}
+          />
+          <Text variant="label" color={colors.textPrimary} style={styles.saveRouteButtonLabel}>
+            {isRouteSaved ? 'Enregistré' : 'Enregistrer'}
+          </Text>
+        </Pressable>
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Démarrer le guidage"
+          accessibilityState={{ disabled: route === undefined }}
+          disabled={route === undefined}
+          onPress={onStart}
+          style={({ pressed }) => [
+            styles.startButton,
+            route === undefined ? styles.startButtonDisabled : null,
+            pressed ? styles.startButtonPressed : null,
+          ]}
+        >
+          <Text variant="title" color={colors.onAccentLight} style={styles.startButtonLabel}>
+            Démarrer
+          </Text>
+          <MaterialCommunityIcons name="navigation-variant" size={START_ICON_SIZE} color={colors.onAccentLight} />
+        </Pressable>
+      </View>
     </>
   );
 

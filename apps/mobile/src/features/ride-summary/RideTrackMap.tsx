@@ -14,8 +14,10 @@ const BOUNDS_PADDING_DP = 24;
 const MIN_BOUNDS_DEGREES = 0.002;
 
 interface Props {
-  // Tracé réellement enregistré pendant le guidage (voir useTrackRecording),
-  // jamais une ligne droite ou des données d'exemple.
+  // Un chemin réel suivant les routes — tracé GPS enregistré pendant le
+  // guidage (voir useTrackRecording) pour une balade effectuée, ou chemin
+  // recalculé par le moteur de routage pour un itinéraire pas encore roulé
+  // (BaladeDetailModal) — jamais une ligne droite ou des données d'exemple.
   readonly path: readonly GeoPoint[];
 }
 
