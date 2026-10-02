@@ -32,7 +32,11 @@ export function SegmentedToggle<T extends string>({ options, value, onChange }: 
             onPress={() => {
               onChange(option.value);
             }}
-            style={[styles.option, isActive ? styles.optionActive : null]}
+            style={({ pressed }) => [
+              styles.option,
+              isActive ? styles.optionActive : null,
+              pressed ? styles.optionPressed : null,
+            ]}
           >
             <Text
               variant="monoBold"
