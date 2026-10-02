@@ -22,7 +22,7 @@ export const styles = StyleSheet.create({
     opacity: 0.85,
   },
   label: {
-    fontSize: 18,
+    fontSize: 12,
   },
   description: {
     textAlign: 'center',

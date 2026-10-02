@@ -8,7 +8,7 @@ export const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   content: {
-    gap: spacing.lg,
+    gap: spacing.xl,
     padding: spacing.md,
     paddingBottom: spacing.xl,
   },
@@ -70,7 +70,7 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     width: '100%',
-    minHeight: 64,
+    minHeight: 56,
     paddingHorizontal: spacing.md,
     borderRadius: 12,
     backgroundColor: colors.surfaceChip,
