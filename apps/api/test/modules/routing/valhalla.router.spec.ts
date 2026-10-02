@@ -308,4 +308,61 @@ describe('ValhallaRouter', () => {
       expect(result.maneuvers).toEqual([]);
     });
   });
+  describe('limitations de vitesse', () => {
+    const routeBody = { trip: { summary: { length: 1, time: 1 }, legs: [leg('e~epoA|jfpOiDaK')] } };
+
+    function jsonResponse(body: unknown, ok = true, status = 200): unknown {
+      return { ok, status, json: () => Promise.resolve(body) };
+    }
+
+    it('joint les limitations renvoyées par /trace_attributes, en m/s', async () => {
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce(jsonResponse(routeBody))
+        .mockResolvedValueOnce(
+          jsonResponse({ edges: [{ begin_shape_index: 0, end_shape_index: 1, speed_limit: 50 }] }),
+        );
+      vi.stubGlobal('fetch', fetchMock);
+
+      const result = await router.computeRoute([origin, destination]);
+
+      expect(result.speedLimits).toHaveLength(1);
+      expect(result.speedLimits[0]).toMatchObject({ startIndex: 0, endIndex: 1 });
+      expect(result.speedLimits[0]?.speedLimitMps).toBeCloseTo(13.89, 2);
+
+      const [url, options] = fetchMock.mock.calls[1] as [URL, RequestInit];
+      expect(url.pathname).toBe('/trace_attributes');
+      expect(JSON.parse(options.body as string)).toMatchObject({
+        encoded_polyline: 'e~epoA|jfpOiDaK',
+        costing: 'motorcycle',
+        shape_match: 'edge_walk',
+      });
+    });
+
+    it("sert l'itinéraire sans limitations quand /trace_attributes échoue", async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi
+          .fn()
+          .mockResolvedValueOnce(jsonResponse(routeBody))
+          .mockResolvedValueOnce(jsonResponse({ error_code: 443, error: 'Exact route match algorithm failed' }, false, 400)),
+      );
+
+      const result = await router.computeRoute([origin, destination]);
+
+      expect(result.path).toHaveLength(2);
+      expect(result.speedLimits).toEqual([]);
+    });
+
+    it("sert l'itinéraire sans limitations quand /trace_attributes est injoignable", async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValueOnce(jsonResponse(routeBody)).mockRejectedValueOnce(new Error('ECONNREFUSED')),
+      );
+
+      const result = await router.computeRoute([origin, destination]);
+
+      expect(result.speedLimits).toEqual([]);
+    });
+  });
 });

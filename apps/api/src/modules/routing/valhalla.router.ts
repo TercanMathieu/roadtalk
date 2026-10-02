@@ -7,6 +7,7 @@ import { AppException } from '../../infrastructure/errors/app-exception';
 import { decodePolyline6 } from './decode-polyline6';
 import { mapValhallaManeuverType } from './maneuver-type';
 import { mergeLegPaths } from './merge-leg-paths';
+import { buildSpeedLimitSegments, type LegSpeedLimitEdge } from './speed-limit-segments';
 
 // "motorcycle", pas "auto" : coûts de circulation différents (ex. accès aux
 // voies interdites aux voitures dans certains pays), vérifié dans les
@@ -61,6 +62,20 @@ const valhallaErrorResponseSchema = z.object({
   error: z.string().optional(),
 });
 const VALHALLA_ERROR_CODE_NO_PATH_FOUND = 442;
+
+// /trace_attributes : seuls les champs demandés par le filtre de la requête
+// sont renvoyés. `speed_limit` est absent quand OpenStreetMap ne porte pas
+// de limitation pour le tronçon (vérifié sur l'instance locale : 51 tronçons
+// sur 421 pour un trajet Grenoble–Vercors) ; en km/h, unité par défaut.
+const valhallaTraceAttributesResponseSchema = z.object({
+  edges: z.array(
+    z.object({
+      begin_shape_index: z.number().int().nonnegative(),
+      end_shape_index: z.number().int().nonnegative(),
+      speed_limit: z.number().positive().optional(),
+    }),
+  ),
+});
 
 const KM_TO_METERS = 1000;
 
@@ -129,12 +144,61 @@ export class ValhallaRouter {
       });
     });
 
+    const legEdges = await Promise.all(trip.legs.map((leg) => this.fetchSpeedLimitEdges(leg.shape)));
+
     return {
       distanceMeters: trip.summary.length * KM_TO_METERS,
       durationSeconds: trip.summary.time,
       path: mergeLegPaths(legPaths),
       maneuvers,
+      speedLimits: buildSpeedLimitSegments(
+        legPaths.map((legPath, legIndex) => ({ pointCount: legPath.length, edges: legEdges[legIndex] ?? [] })),
+      ),
     };
+  }
+
+  // Limitations de vitesse le long d'un leg déjà calculé. Jamais bloquant :
+  // toute défaillance rend une liste vide, l'itinéraire reste servi sans
+  // limitations plutôt que de faire échouer le calcul pour une information
+  // secondaire.
+  private async fetchSpeedLimitEdges(shape: string): Promise<readonly LegSpeedLimitEdge[]> {
+    try {
+      const response = await fetch(new URL('/trace_attributes', env.VALHALLA_URL), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          encoded_polyline: shape,
+          costing: COSTING_PROFILE,
+          // Le shape vient du moteur lui-même : il suit exactement ses
+          // tronçons, pas besoin de recalage approximatif (map_snap).
+          shape_match: 'edge_walk',
+          filters: {
+            attributes: ['edge.speed_limit', 'edge.begin_shape_index', 'edge.end_shape_index'],
+            action: 'include',
+          },
+        }),
+      });
+      if (!response.ok) {
+        this.logger.warn(`Limitations de vitesse indisponibles (HTTP ${String(response.status)})`);
+        return [];
+      }
+
+      const parsed = valhallaTraceAttributesResponseSchema.safeParse(await response.json());
+      if (!parsed.success) {
+        this.logger.warn('Limitations de vitesse : réponse du moteur de routage non conforme');
+        return [];
+      }
+
+      return parsed.data.edges.map((edge) => ({
+        beginShapeIndex: edge.begin_shape_index,
+        endShapeIndex: edge.end_shape_index,
+        speedLimitKph: edge.speed_limit,
+      }));
+    } catch {
+      // Jamais le shape dans les logs : il décrit un trajet réel (C4).
+      this.logger.warn('Limitations de vitesse : moteur de routage injoignable');
+      return [];
+    }
   }
 
   private async fetchRoute(

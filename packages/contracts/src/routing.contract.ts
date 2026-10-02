@@ -58,6 +58,20 @@ export const maneuverSchema = z.object({
 
 export type ManeuverDto = z.infer<typeof maneuverSchema>;
 
+// Limitation réglementaire sur une portion du tracé. Seuls les tronçons dont
+// la limitation est connue du moteur de routage (donnée OpenStreetMap) sont
+// présents : un trou entre deux segments signifie "limitation inconnue",
+// jamais une valeur supposée d'après le type de route.
+export const speedLimitSegmentSchema = z.object({
+  // Index dans `path` : la limitation s'applique de path[startIndex] à
+  // path[endIndex].
+  startIndex: z.number().int().nonnegative(),
+  endIndex: z.number().int().nonnegative(),
+  speedLimitMps: z.number().positive(),
+});
+
+export type SpeedLimitSegmentDto = z.infer<typeof speedLimitSegmentSchema>;
+
 export const routeGeometrySchema = z.object({
   distanceMeters: z.number().nonnegative(),
   durationSeconds: z.number().nonnegative(),
@@ -68,6 +82,9 @@ export const routeGeometrySchema = z.object({
   // Valhalla n'en fournit aucune (cas limite, jamais observé en pratique) —
   // le guidage doit s'en accommoder sans planter.
   maneuvers: z.array(maneuverSchema),
+  // Dans l'ordre du tracé, sans chevauchement. Vide si le moteur de routage
+  // n'a pas pu les fournir : l'itinéraire reste utilisable sans elles.
+  speedLimits: z.array(speedLimitSegmentSchema),
 });
 
 export type RouteGeometryDto = z.infer<typeof routeGeometrySchema>;
