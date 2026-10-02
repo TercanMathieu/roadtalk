@@ -78,4 +78,8 @@ export class RoutesService {
   async renameForAuthor(id: RouteId, authorId: UserId, name: string): Promise<boolean> {
     return this.routes.renameByIdForAuthor(id, authorId, name);
   }
+
+  async setFavoriteForAuthor(id: RouteId, authorId: UserId, isFavorite: boolean): Promise<boolean> {
+    return this.routes.setFavoriteByIdForAuthor(id, authorId, isFavorite);
+  }
 }

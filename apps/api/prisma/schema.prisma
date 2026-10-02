@@ -154,6 +154,10 @@ model Route {
   durationSeconds     Float?   @map("duration_seconds")
   elevationGainMeters Float?   @map("elevation_gain_meters")
 
+  // Même notion que Ride.isFavorite : mise en avant personnelle, c'est elle
+  // qui place l'itinéraire dans l'onglet Favoris du mobile.
+  isFavorite Boolean @default(false) @map("is_favorite")
+
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
 
   // Tri par récence, filtré par auteur.
