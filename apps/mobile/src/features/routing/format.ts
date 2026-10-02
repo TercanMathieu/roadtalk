@@ -59,6 +59,20 @@ export function formatSpeedKmh(speedMps: number | undefined): string {
   return String(Math.round(speedMps * MPS_TO_KMH));
 }
 
+export function formatSpeedLimitKmh(speedLimitMps: number): string {
+  return String(Math.round(speedLimitMps * MPS_TO_KMH));
+}
+
+// Comparaison sur les valeurs arrondies, celles affichées : rouler à 50,4
+// km/h sous un panneau 50 affiche "50" des deux côtés et ne doit pas passer
+// pour un dépassement.
+export function isOverSpeedLimit(speedMps: number | undefined, speedLimitMps: number | undefined): boolean {
+  if (speedMps === undefined || speedLimitMps === undefined) {
+    return false;
+  }
+  return Math.round(speedMps * MPS_TO_KMH) > Math.round(speedLimitMps * MPS_TO_KMH);
+}
+
 export function formatDuration(durationSeconds: number): string {
   const totalMinutes = Math.round(durationSeconds / SECONDS_PER_MINUTE);
   const hours = Math.floor(totalMinutes / MINUTES_PER_HOUR);

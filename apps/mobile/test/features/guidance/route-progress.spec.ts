@@ -36,6 +36,11 @@ const route: RouteGeometryDto = {
   durationSeconds: 60,
   path,
   maneuvers: [turnRight, arrival],
+  // 50 km/h de l'index 0 à 2, inconnue de 2 à 3, 80 km/h de 3 à 4.
+  speedLimits: [
+    { startIndex: 0, endIndex: 2, speedLimitMps: 13.89 },
+    { startIndex: 3, endIndex: 4, speedLimitMps: 22.22 },
+  ],
 };
 
 describe('route-progress', () => {
@@ -100,6 +105,28 @@ describe('route-progress', () => {
     const progress = computeRouteProgress(model, { latitude: 0.002, longitude: 0.01 });
 
     expect(progress.distanceFromRoute).toBeGreaterThan(1000);
+  });
+
+  describe('limitation de vitesse', () => {
+    const model = buildRouteProgressModel(route);
+
+    it('donne la limitation de la portion en cours', () => {
+      expect(computeRouteProgress(model, { latitude: 0.001, longitude: 0 }).speedLimitMps).toBe(13.89);
+      expect(computeRouteProgress(model, { latitude: 0.003, longitude: 0 }).speedLimitMps).toBe(22.22);
+    });
+
+    it('ne donne rien sur une portion dont la limitation est inconnue', () => {
+      // Index 2 : fin de la portion à 50, début d'une portion sans limitation connue.
+      expect(computeRouteProgress(model, { latitude: 0.002, longitude: 0 }).speedLimitMps).toBeUndefined();
+    });
+
+    it("garde la limitation de la dernière portion à l'arrivée", () => {
+      expect(computeRouteProgress(model, { latitude: 0.004, longitude: 0 }).speedLimitMps).toBe(22.22);
+    });
+
+    it('ne donne rien hors trajet', () => {
+      expect(computeRouteProgress(model, { latitude: 0.001, longitude: 0.01 }).speedLimitMps).toBeUndefined();
+    });
   });
 
   it('calcule la distance de chaque segment pour le récapitulatif complet', () => {

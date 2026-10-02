@@ -692,6 +692,7 @@ export function MapScreen(): React.JSX.Element {
       {isNavigating && progress !== undefined ? (
         <GuidanceFooter
           speedMps={vehiclePosition?.speedMps}
+          speedLimitMps={progress.speedLimitMps}
           distanceRemainingMeters={progress.distanceRemaining}
           durationRemainingSeconds={progress.durationRemaining}
           isOffRoute={isOffRoute}
