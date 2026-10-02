@@ -63,6 +63,10 @@ export const ERROR_CATALOG: Record<ErrorCode, ErrorDefinition> = {
     status: HttpStatus.UNPROCESSABLE_ENTITY,
     message: 'Aucun itinéraire trouvé entre ces deux points',
   },
+  [ErrorCode.RIDE_NOT_FOUND]: {
+    status: HttpStatus.NOT_FOUND,
+    message: 'Balade introuvable',
+  },
   [ErrorCode.VALIDATION_ERROR]: {
     status: HttpStatus.BAD_REQUEST,
     message: 'Requête invalide',

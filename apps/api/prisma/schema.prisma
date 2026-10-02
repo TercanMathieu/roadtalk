@@ -26,6 +26,7 @@ model User {
 
   refreshTokens         RefreshToken[]
   addressHistoryEntries AddressHistoryEntry[]
+  rides                 Ride[]
 
   @@map("users")
 }
@@ -78,4 +79,46 @@ model AddressHistoryEntry {
   // de la requête d'historique.
   @@index([userId, selectedAt])
   @@map("address_history_entries")
+}
+
+model Ride {
+  id      String @id @default(uuid()) @db.Uuid
+  ownerId String @map("owner_id") @db.Uuid
+  owner   User   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  // Éditable par l'utilisateur avant la sauvegarde (voir RideSummaryScreen
+  // côté mobile) — jamais vide, un nom par défaut est proposé côté client.
+  name String
+
+  startedAt DateTime @map("started_at") @db.Timestamptz(3)
+  endedAt   DateTime @map("ended_at") @db.Timestamptz(3)
+
+  // Résumé recalculé côté serveur à partir de `track` (summarizeTrack,
+  // domain/summarize-track.ts) — jamais une valeur envoyée telle quelle par
+  // le client, qui pourrait l'avoir mal calculée ou falsifiée.
+  distanceMeters      Float @map("distance_meters")
+  durationSeconds     Float @map("duration_seconds")
+  averageSpeedMps     Float @map("average_speed_mps")
+  maxSpeedMps         Float @map("max_speed_mps")
+  elevationGainMeters Float @map("elevation_gain_meters")
+
+  // Tracé brut (liste de points GPS), pas de colonne géométrique PostGIS :
+  // voir ADR-002 — aucune requête spatiale n'existe en V1 (pas de recherche
+  // "balades à proximité"), un JSONB suffit à réafficher le tracé sur la
+  // carte. À migrer vers `geography(LineString)` + requêtes $queryRaw le
+  // jour où un vrai besoin spatial apparaît.
+  track Json
+
+  // Mise en avant personnelle d'une balade déjà effectuée — distinct des
+  // "Favoris" de l'onglet Historique (qui désigne les itinéraires Route
+  // enregistrés, pas encore roulés). Les deux notions coexistent sans se
+  // recouper.
+  isFavorite Boolean @default(false) @map("is_favorite")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  // Tri par récence, filtré par propriétaire — exactement le sens de lecture
+  // de l'écran Historique/Balades.
+  @@index([ownerId, startedAt])
+  @@map("rides")
 }
