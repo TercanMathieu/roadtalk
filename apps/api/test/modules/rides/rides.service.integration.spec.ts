@@ -17,6 +17,7 @@ import { RidesService } from '../../../src/modules/rides/application/rides.servi
 import type { TrackPoint } from '../../../src/modules/rides/domain/track-point';
 import { PrismaRideRepository } from '../../../src/modules/rides/infrastructure/prisma-ride.repository';
 import { UsersService } from '../../../src/modules/users/users.service';
+import { POSTGIS_IMAGE } from '../../support/postgis-image';
 
 const apiRoot = path.resolve(__dirname, '../../..');
 
@@ -53,7 +54,7 @@ describe('RidesService (intégration, vraie Postgres via Testcontainers)', () =>
   let usersService: UsersService;
 
   beforeAll(async () => {
-    container = await new PostgreSqlContainer('postgis/postgis:16-3.4').start();
+    container = await new PostgreSqlContainer(POSTGIS_IMAGE).start();
     const databaseUrl = container.getConnectionUri();
 
     execSync('pnpm exec prisma db push --skip-generate', {

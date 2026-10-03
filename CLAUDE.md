@@ -68,6 +68,15 @@ Docker plutôt que `localhost`, puisqu'il tourne dans le même réseau compose).
 Outils de dev uniquement, aucune authentification configurée — jamais exposés
 hors de la machine locale.
 
+Image Postgres : `imresamu/postgis:16-3.4-bookworm` (multi-arch), pas `postgis/postgis`
+(amd64 seul — sous émulation sur Apple Silicon, les backends crashaient plusieurs fois
+par heure). Choix justifié dans `infra/docker/docker-compose.yml` ; les tests
+Testcontainers utilisent la même via `apps/api/test/support/postgis-image.ts` — changer
+les deux ensemble. Un volume créé par une image d'une autre distro Debian (glibc
+différente) affiche « collation version mismatch » au démarrage : sur chaque base,
+`REINDEX DATABASE <db>;` puis `ALTER DATABASE <db> REFRESH COLLATION VERSION;`
+(fait le 2026-10-03 lors du passage bullseye → bookworm).
+
 Redis tourne mais n'est encore référencé nulle part dans le code — il attend BullMQ.
 
 Variables d'environnement de l'API : voir `apps/api/.env.example` (commentaires inclus,

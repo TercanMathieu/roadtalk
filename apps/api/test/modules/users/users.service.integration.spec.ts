@@ -10,6 +10,7 @@ import { PrismaService } from '../../../src/infrastructure/database/prisma.servi
 import { type AppErrorBody,AppException } from '../../../src/infrastructure/errors/app-exception';
 import { UsernameModerationService } from '../../../src/modules/users/username-moderation.service';
 import { UsersService } from '../../../src/modules/users/users.service';
+import { POSTGIS_IMAGE } from '../../support/postgis-image';
 
 const apiRoot = path.resolve(__dirname, '../../..');
 
@@ -30,7 +31,7 @@ describe('UsersService (intégration, vraie Postgres via Testcontainers)', () =>
   let service: UsersService;
 
   beforeAll(async () => {
-    container = await new PostgreSqlContainer('postgis/postgis:16-3.4').start();
+    container = await new PostgreSqlContainer(POSTGIS_IMAGE).start();
     const databaseUrl = container.getConnectionUri();
 
     // `db push` plutôt que `migrate deploy` : on veut juste synchroniser le
