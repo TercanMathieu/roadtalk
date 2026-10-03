@@ -7,6 +7,9 @@ export interface PendingRouteLaunch {
   // Départ choisi sur la carte, pour un itinéraire enregistré qui en avait un
   // (voir RouteDto.fixedStart). Absent : départ depuis la position actuelle.
   readonly origin?: AddressSuggestionDto;
+  // Vrai quand départ et arrêts portent déjà leur nom (itinéraire IA) : ne
+  // pas le remplacer par l'adresse retrouvée à partir des seules coordonnées.
+  readonly labelled?: boolean;
 }
 
 interface PendingRouteLaunchState {

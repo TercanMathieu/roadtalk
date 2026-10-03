@@ -17,6 +17,10 @@ remettre en cause un choix qui y est tracé :
 - **ADR-002** : Prisma comme ORM (pas Drizzle, pas MikroORM) — inclut une limitation
   PostGIS connue et acceptée, avec la conséquence concrète pour les futures colonnes
   géométriques de `Route`.
+- **ADR-003** : identifiant public `Pseudo#TAG` (tag de 4 consonnes généré, pseudo filtré).
+- **ADR-004** : itinéraire IA — le modèle (Claude, API hébergée) choisit des lieux
+  nommés, le serveur les géocode et Valhalla calcule le trajet ; seules les communes de
+  départ et d'arrivée quittent nos serveurs ; quota quotidien par utilisateur.
 
 ## Commandes
 
@@ -215,7 +219,9 @@ contrats partagés), Expo Router + React Native, pnpm workspaces + Turborepo, Vi
 Testcontainers (vraie Postgres pour l'intégration, jamais de mock d'infra), ESLint
 (`typescript-eslint` strict-type-checked + `eslint-plugin-boundaries`) + Prettier,
 Valhalla auto-hébergé (routage moto — `POST /routing`, `costing: "motorcycle"`,
-`infra/docker/docker-compose.yml`, extrait OSM France entière).
+`infra/docker/docker-compose.yml`, extrait OSM France entière), génération
+d'itinéraire par Claude via `@anthropic-ai/sdk` (`modules/ai-routes/`, ADR-004 — le
+seul service tiers payant à l'usage).
 
 Décidé mais pas encore construit (ne pas improviser autre chose quand ces sessions
 arrivent) : Redis + BullMQ (jobs), Photon auto-hébergé (géocodage — pointe encore sur
@@ -296,7 +302,8 @@ elle est réglée. Rien de tout ceci n'est déployé aujourd'hui.
 
 - **API** (`apps/api/.env.example`) : `DATABASE_URL`, `JWT_PRIVATE_KEY` /
   `JWT_PUBLIC_KEY` (générer une paire EdDSA propre à la production, jamais celle de
-  dev), `GOOGLE_OAUTH_CLIENT_ID`, `APPLE_CLIENT_ID`, `PHOTON_URL`, `VALHALLA_URL`.
+  dev), `GOOGLE_OAUTH_CLIENT_ID`, `APPLE_CLIENT_ID`, `PHOTON_URL`, `VALHALLA_URL`,
+  `ANTHROPIC_API_KEY` (clé propre à la production), `AI_ROUTE_DAILY_LIMIT`.
 - **Mobile** : `EXPO_PUBLIC_API_URL` (obligatoire hors dev, où l'adresse est déduite
   de Metro), `EXPO_PUBLIC_MAPTILER_API_KEY` (clé de production, à restreindre),
   `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID`, `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID`.
@@ -340,8 +347,17 @@ elle est réglée. Rien de tout ceci n'est déployé aujourd'hui.
   synthèse avec une voix française est installé (sinon la voix par défaut lit mal
   le français), et tester le comportement avec un casque Bluetooth. Pas de choix de
   voix ni de volume dans l'app.
-- **Écrans encore en maquette** à retirer ou terminer : génération d'itinéraire par
-  IA, import GPX, cartes hors-ligne, zones de danger.
+- **Itinéraire IA** (ADR-004) : compte Anthropic avec moyen de paiement, **limite de
+  dépense mensuelle** fixée dans la console, et alerte. Vérifier l'accord de
+  traitement des données (DPA) et la localisation du traitement (fournisseur hors
+  UE, C4) ; le mentionner dans la politique de confidentialité (communes de départ
+  et d'arrivée, et précisions libres transmises). Ajuster `AI_ROUTE_DAILY_LIMIT`
+  d'après le coût réel
+  (somme des tokens dans `ai_route_generations`). Cette table n'est pas encore
+  purgée ; elle ne contient ni position ni texte, mais prévoir de la vider au-delà
+  de quelques mois quand BullMQ arrivera.
+- **Écrans encore en maquette** à retirer ou terminer : import GPX, cartes
+  hors-ligne, zones de danger.
 
 ## Contraintes métier
 

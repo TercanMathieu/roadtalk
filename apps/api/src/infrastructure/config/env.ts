@@ -26,6 +26,12 @@ const envSchema = z.object({
   // — contrairement à Photon, Valhalla n'a pas d'instance publique gratuite
   // fiable, donc pas de défaut vers un tiers ici.
   VALHALLA_URL: z.string().url().default('http://localhost:8002'),
+  // Génération d'itinéraire par IA (ADR-004). Absente : la génération répond
+  // AI_ROUTE_UNAVAILABLE, sans empêcher le serveur de démarrer.
+  ANTHROPIC_API_KEY: optionalNonEmptyString,
+  // Générations par utilisateur et par 24 h glissantes : chacune coûte un
+  // appel au modèle (C5).
+  AI_ROUTE_DAILY_LIMIT: z.coerce.number().int().positive().default(5),
 });
 
 // Échoue vite et clairement au démarrage si une variable manque, plutôt que

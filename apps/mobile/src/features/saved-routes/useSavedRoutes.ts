@@ -1,5 +1,5 @@
 import type { RouteDto } from '@roadtalk/contracts';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
 import { withFreshAccessToken } from '../auth/auth.store';
 import { deleteRoute, listRoutes, renameRoute as renameRouteRequest, setRouteFavorite } from './api';
@@ -17,6 +17,8 @@ interface SavedRoutes {
   readonly toggleFavorite: (id: string) => void;
 }
 
+// Ne charge rien d'elle-même : l'écran appelle `refresh` à chaque affichage
+// (voir HistoryScreen).
 export function useSavedRoutes(): SavedRoutes {
   const [routes, setRoutes] = useState<readonly RouteDto[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -35,8 +37,9 @@ export function useSavedRoutes(): SavedRoutes {
         }
       })
       .catch(() => {
+        // La liste déjà affichée reste en place : un échec réseau passager
+        // ne doit pas la vider (C3).
         if (requestIdRef.current === requestId) {
-          setRoutes([]);
           setError('Itinéraires indisponibles.');
         }
       })
@@ -46,10 +49,6 @@ export function useSavedRoutes(): SavedRoutes {
         }
       });
   }, []);
-
-  useEffect(() => {
-    refresh();
-  }, [refresh]);
 
   const removeRoute = useCallback(
     (id: string): void => {

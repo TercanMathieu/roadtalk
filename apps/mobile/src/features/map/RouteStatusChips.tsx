@@ -7,8 +7,7 @@ import { colors, Text } from '../../ui';
 import { styles } from './RouteStatusChips.styles';
 
 // Une seule puce, la seule qui mène quelque part : l'entrée vers la
-// génération d'itinéraire par IA (écran qui reste lui-même un aperçu, voir
-// AiRouteGeneratorScreen). Les anciennes puces décoratives ("Pack
+// génération d'itinéraire par IA. Les anciennes puces décoratives ("Pack
 // hors-ligne", "Virages max") ne pilotaient rien et ont été retirées.
 export function RouteStatusChips(): React.JSX.Element {
   return (

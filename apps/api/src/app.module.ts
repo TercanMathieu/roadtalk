@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 
 import { HealthController } from './health/health.controller';
+import { AiRoutesModule } from './modules/ai-routes/ai-routes.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { RidesModule } from './modules/rides/rides.module';
 import { RoutesModule } from './modules/routes/routes.module';
@@ -10,7 +11,16 @@ import { SearchHistoryModule } from './modules/search-history/search-history.mod
 import { UsersModule } from './modules/users/users.module';
 
 @Module({
-  imports: [AuthModule, RidesModule, RoutesModule, RoutingModule, SearchModule, SearchHistoryModule, UsersModule],
+  imports: [
+    AiRoutesModule,
+    AuthModule,
+    RidesModule,
+    RoutesModule,
+    RoutingModule,
+    SearchModule,
+    SearchHistoryModule,
+    UsersModule,
+  ],
   controllers: [HealthController],
 })
 export class AppModule {}

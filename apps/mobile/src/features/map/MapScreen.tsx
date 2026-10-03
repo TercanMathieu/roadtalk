@@ -469,6 +469,11 @@ export function MapScreen(): React.JSX.Element {
       }
       setStops(launch.stops);
       setCustomOrigin(launch.origin);
+      setIsPickingOrigin(false);
+      setAvoidHighways(launch.avoidHighways);
+      if (launch.labelled === true) {
+        return;
+      }
       // Les points d'un itinéraire enregistré n'ont que leurs coordonnées :
       // on retrouve leurs adresses pour l'affichage, sans toucher au trajet
       // (même logique que l'appui long sur la carte, voir handleMapLongPress).
@@ -494,8 +499,6 @@ export function MapScreen(): React.JSX.Element {
           );
         });
       }
-      setIsPickingOrigin(false);
-      setAvoidHighways(launch.avoidHighways);
     }, []),
   );
 

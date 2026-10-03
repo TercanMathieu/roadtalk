@@ -16,13 +16,14 @@ export const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     paddingBottom: spacing.sm,
   },
-  backButton: {
+  headerButton: {
     width: MIN_TOUCH_TARGET_DP,
     height: MIN_TOUCH_TARGET_DP,
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerTitle: {
+    flex: 1,
     fontSize: 22,
   },
   content: {
@@ -76,23 +77,10 @@ export const styles = StyleSheet.create({
     borderRadius: 16,
     backgroundColor: colors.surface,
   },
-  elevationChart: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: 4,
-  },
-  elevationBar: {
-    flex: 1,
-    borderRadius: 3,
-    backgroundColor: colors.surfaceMuted,
-  },
-  elevationBarPeak: {
-    backgroundColor: colors.accent,
-  },
-  elevationAxis: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: spacing.sm,
+  mapCard: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    backgroundColor: colors.surface,
   },
   waypointRow: {
     flexDirection: 'row',
@@ -135,7 +123,24 @@ export const styles = StyleSheet.create({
     borderTopColor: colors.border,
     backgroundColor: colors.background,
   },
+  footerHint: {
+    textAlign: 'center',
+    marginBottom: spacing.sm,
+  },
+  footerActions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  secondaryButton: {
+    width: 52,
+    minHeight: 52,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 14,
+    backgroundColor: colors.surface,
+  },
   launchButton: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -146,6 +151,9 @@ export const styles = StyleSheet.create({
   },
   launchButtonLabel: {
     fontSize: 17,
+  },
+  buttonDisabled: {
+    opacity: 0.5,
   },
   pressed: {
     opacity: 0.85,

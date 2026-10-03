@@ -9,5 +9,7 @@ import { ValhallaRouter } from './valhalla.router';
   imports: [AuthInfrastructureModule],
   controllers: [RoutingController],
   providers: [RoutingService, ValhallaRouter],
+  // Réutilisé par la génération d'itinéraire IA pour calculer le trajet réel.
+  exports: [ValhallaRouter],
 })
 export class RoutingModule {}
