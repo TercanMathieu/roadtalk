@@ -8,6 +8,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { PrismaService } from '../../../src/infrastructure/database/prisma.service';
 import { SearchHistoryService } from '../../../src/modules/search-history/search-history.service';
 import { UsersService } from '../../../src/modules/users/users.service';
+import { POSTGIS_IMAGE } from '../../support/postgis-image';
 
 const apiRoot = path.resolve(__dirname, '../../..');
 
@@ -34,7 +35,7 @@ describe('SearchHistoryService (intégration, vraie Postgres via Testcontainers)
   let usersService: UsersService;
 
   beforeAll(async () => {
-    container = await new PostgreSqlContainer('postgis/postgis:16-3.4').start();
+    container = await new PostgreSqlContainer(POSTGIS_IMAGE).start();
     const databaseUrl = container.getConnectionUri();
 
     execSync('pnpm exec prisma db push --skip-generate', {

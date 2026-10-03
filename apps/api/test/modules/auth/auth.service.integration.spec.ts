@@ -13,6 +13,7 @@ import { AuthService } from '../../../src/modules/auth/auth.service';
 import type { AppleTokenVerifier } from '../../../src/modules/auth/provider-token-verifer';
 import type { GoogleTokenVerifier } from '../../../src/modules/auth/provider-token-verifer';
 import { UsersService } from '../../../src/modules/users/users.service';
+import { POSTGIS_IMAGE } from '../../support/postgis-image';
 
 const apiRoot = path.resolve(__dirname, '../../..');
 
@@ -39,7 +40,7 @@ describe('AuthService (intégration, vraie Postgres via Testcontainers)', () => 
   let authService: AuthService;
 
   beforeAll(async () => {
-    container = await new PostgreSqlContainer('postgis/postgis:16-3.4').start();
+    container = await new PostgreSqlContainer(POSTGIS_IMAGE).start();
     const databaseUrl = container.getConnectionUri();
 
     execSync('pnpm exec prisma db push --skip-generate', {

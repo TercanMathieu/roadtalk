@@ -1,6 +1,19 @@
 services:
+  # `postgis/postgis` (image officielle) n'est publiée qu'en amd64 : sur Apple
+  # Silicon elle tournait sous émulation, avec des backends qui crashaient
+  # plusieurs fois par heure (« exited with exit code 2 », puis recovery mode).
+  # imresamu/postgis est le dépôt multi-arch (amd64 + arm64) tenu par un
+  # mainteneur de docker-postgis, construit depuis les mêmes Dockerfiles — même
+  # build, même jour, mêmes versions que postgis/postgis:16-3.4 (PG 16.4,
+  # PostGIS 3.4.3). Dépôt étiqueté « expérimental » par son auteur, d'où
+  # l'usage limité au dev local et aux tests. Les deux tags 16-3.4 sont figés
+  # depuis 2024-10 (plus de rebuild de la branche 3.4 en amont).
+  # Variante Debian explicite : la collation de la base dépend de la glibc de
+  # l'image (glibc 2.36 sur bookworm) — un changement de distro silencieux
+  # imposerait un REINDEX. Même image dans les tests Testcontainers
+  # (apps/api/test/support/postgis-image.ts).
   postgres:
-    image: postgis/postgis:16-3.4
+    image: imresamu/postgis:16-3.4-bookworm
     environment:
       POSTGRES_USER: roadtalk
       POSTGRES_PASSWORD: roadtalk_dev
