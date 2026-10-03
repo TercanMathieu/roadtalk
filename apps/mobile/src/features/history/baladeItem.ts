@@ -1,9 +1,8 @@
 import type { RideListItemDto, RouteDto } from '@roadtalk/contracts';
 import { Alert } from 'react-native';
 
-// Partagé entre HistoryScreen (liste) et BaladeDetailModal (détail) — voir
-// HistoryScreen pour le raisonnement complet sur "Favoris" = routes
-// enregistrées.
+// Partagé entre HistoryScreen (liste) et BaladeDetailModal (détail) : une
+// balade roulée (`ride`) ou un itinéraire enregistré (`route`).
 export type BaladeItem =
   | { readonly kind: 'ride'; readonly ride: RideListItemDto }
   | { readonly kind: 'route'; readonly route: RouteDto };

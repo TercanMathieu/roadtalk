@@ -24,7 +24,6 @@ import type { TrackPoint } from './track-point';
 const ICON_SIZE = 18;
 const COMING_SOON_MESSAGE = 'Fonctionnalité bientôt disponible.';
 const GPX_EXPORT_FAILED_MESSAGE = "L'export GPX a échoué.";
-const RIDE_SAVED_MESSAGE = 'Balade sauvegardée dans l’historique.';
 const RIDE_SAVE_FAILED_MESSAGE = 'La sauvegarde a échoué.';
 
 interface Props {
@@ -33,7 +32,8 @@ interface Props {
   readonly rideId: string;
   readonly summary: RideSummary;
   readonly points: readonly TrackPoint[];
-  // Appelé une fois la balade enregistrée sur le serveur.
+  // Appelé une fois la balade enregistrée sur le serveur : le parent ferme
+  // le résumé et confirme l'enregistrement.
   readonly onSaved: () => void;
   readonly onClose: () => void;
 }
@@ -53,7 +53,6 @@ export function RideSummaryScreen({ rideId, summary, points, onSaved, onClose }:
   const [rideName, setRideName] = useState(() => defaultRideName(first?.recordedAt ?? Date.now()));
   const [isExportingGpx, setIsExportingGpx] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [isSaved, setIsSaved] = useState(false);
 
   const handleExportGpx = (): void => {
     setIsExportingGpx(true);
@@ -81,16 +80,11 @@ export function RideSummaryScreen({ rideId, summary, points, onSaved, onClose }:
         track: points,
       }),
     )
-      .then(() => {
-        onSaved();
-        setIsSaved(true);
-        snackbar.show(RIDE_SAVED_MESSAGE);
-      })
+      .then(onSaved)
       .catch(() => {
-        snackbar.show(RIDE_SAVE_FAILED_MESSAGE);
-      })
-      .finally(() => {
+        // Le résumé reste ouvert pour pouvoir réessayer.
         setIsSaving(false);
+        snackbar.show(RIDE_SAVE_FAILED_MESSAGE);
       });
   };
 
@@ -267,22 +261,14 @@ export function RideSummaryScreen({ rideId, summary, points, onSaved, onClose }:
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Sauvegarder dans l'historique"
-              accessibilityState={{ disabled: isSaving || isSaved || points.length === 0 }}
-              disabled={isSaving || isSaved || points.length === 0}
+              accessibilityState={{ disabled: isSaving || points.length === 0, busy: isSaving }}
+              disabled={isSaving || points.length === 0}
               onPress={handleSaveToHistory}
-              style={({ pressed }) => [
-                styles.secondaryAction,
-                isSaved ? styles.primaryActionDisabled : null,
-                pressed ? styles.rowPressed : null,
-              ]}
+              style={({ pressed }) => [styles.secondaryAction, pressed ? styles.rowPressed : null]}
             >
-              <MaterialCommunityIcons
-                name={isSaved ? 'check-circle-outline' : 'archive-outline'}
-                size={ICON_SIZE}
-                color={colors.textPrimary}
-              />
+              <MaterialCommunityIcons name="archive-outline" size={ICON_SIZE} color={colors.textPrimary} />
               <Text variant="title" style={styles.secondaryActionLabel}>
-                {isSaved ? 'Sauvegardée' : isSaving ? 'Sauvegarde…' : "Sauvegarder dans l'historique"}
+                {isSaving ? 'Sauvegarde…' : "Sauvegarder dans l'historique"}
               </Text>
             </Pressable>
           </View>

@@ -357,7 +357,8 @@ elle est réglée. Rien de tout ceci n'est déployé aujourd'hui.
   purgée ; elle ne contient ni position ni texte, mais prévoir de la vider au-delà
   de quelques mois quand BullMQ arrivera.
 - **Écrans encore en maquette** à retirer ou terminer : import GPX, cartes
-  hors-ligne, zones de danger.
+  hors-ligne, zones de danger, onglet « Amis » des Balades (vide tant que le
+  système d'amis, prévu en V2, n'existe pas).
 
 ## Contraintes métier
 
