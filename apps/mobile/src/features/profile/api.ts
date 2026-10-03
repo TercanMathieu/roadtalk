@@ -1,4 +1,4 @@
-import { type UserDto, userSchema } from '@roadtalk/contracts';
+import { type HandleSuggestionDto, handleSuggestionSchema, type UserDto, userSchema } from '@roadtalk/contracts';
 
 import { request } from '../../lib/http';
 
@@ -7,8 +7,18 @@ export async function getMe(accessToken: string): Promise<UserDto> {
   return userSchema.parse(json);
 }
 
-export async function setUsername(accessToken: string, username: string): Promise<UserDto> {
-  const json = await request('PATCH', '/users/me/username', { accessToken, body: { username } });
+// Demande au serveur si ce pseudo est acceptable et, si oui, un tag libre
+// pour lui. Rejette avec USERNAME_NOT_ALLOWED si le filtre le refuse.
+export async function getHandleSuggestion(accessToken: string, username: string): Promise<HandleSuggestionDto> {
+  const params = new URLSearchParams({ username });
+  const json = await request('GET', `/users/me/handle-suggestion?${params.toString()}`, { accessToken });
+  return handleSuggestionSchema.parse(json);
+}
+
+// Enregistre l'identifiant "Pseudo#TAG", avec le tag que le serveur vient de
+// proposer (getHandleSuggestion).
+export async function setHandle(accessToken: string, username: string, tag: string): Promise<UserDto> {
+  const json = await request('PATCH', '/users/me/username', { accessToken, body: { username, tag } });
   return userSchema.parse(json);
 }
 

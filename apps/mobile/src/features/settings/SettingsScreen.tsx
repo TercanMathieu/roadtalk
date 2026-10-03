@@ -1,3 +1,5 @@
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import type React from 'react';
 import { Alert, Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -23,7 +25,9 @@ const DELETE_FAILED_MESSAGE = 'La suppression a échoué, réessaie plus tard.';
 
 export function SettingsScreen(): React.JSX.Element {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const username = useAuthStore((state) => state.username);
+  const tag = useAuthStore((state) => state.tag);
   const provider = useAuthStore((state) => state.provider);
   const distanceUnit = useSettingsStore((state) => state.distanceUnit);
   const setDistanceUnit = useSettingsStore((state) => state.setDistanceUnit);
@@ -114,13 +118,22 @@ export function SettingsScreen(): React.JSX.Element {
       <View style={styles.section}>
         <SettingsSectionHeader icon="shield-check-outline" title="Compte & données" />
         <SettingsCard>
-          <SettingsRow
-            icon="account-circle-outline"
-            title={username ?? 'Session authentifiée'}
-            subtitle={`Connecté via ${providerLabel}`}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Ouvrir ma fiche"
+            onPress={() => {
+              router.push('/profile');
+            }}
+            style={({ pressed }) => (pressed ? styles.pressed : null)}
           >
-            {null}
-          </SettingsRow>
+            <SettingsRow
+              icon="account-circle-outline"
+              title={username !== null && username !== undefined ? `${username}#${tag ?? ''}` : 'Session authentifiée'}
+              subtitle={`Connecté via ${providerLabel}`}
+            >
+              <MaterialCommunityIcons name="chevron-right" size={22} color={colors.textSecondary} />
+            </SettingsRow>
+          </Pressable>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Exporter mes données"
