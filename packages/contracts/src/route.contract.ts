@@ -19,6 +19,11 @@ export const routeSchema = z.object({
   waypoints: z.array(geoPointSchema).min(2),
   routingOptions: routingOptionsSchema,
   source: routeSourceSchema,
+  // Vrai quand le départ a été choisi sur la carte (balade préparée ailleurs
+  // que là où l'on se trouve) : à la relance, l'itinéraire repart de ce point.
+  // Faux : le premier point n'était que la position de l'utilisateur à ce
+  // moment-là, et la relance repart de sa position actuelle.
+  fixedStart: z.boolean(),
   distanceMeters: z.number().nonnegative().optional(),
   durationSeconds: z.number().nonnegative().optional(),
   elevationGainMeters: z.number().nonnegative().optional(),
@@ -40,6 +45,7 @@ export const saveRouteRequestSchema = z.object({
   name: z.string().trim().min(1).max(120).optional(),
   waypoints: z.array(geoPointSchema).min(2),
   routingOptions: routingOptionsSchema,
+  fixedStart: z.boolean().optional(),
   distanceMeters: z.number().nonnegative().optional(),
   durationSeconds: z.number().nonnegative().optional(),
 });

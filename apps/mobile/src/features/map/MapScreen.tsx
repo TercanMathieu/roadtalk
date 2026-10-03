@@ -10,14 +10,15 @@ import {
   type ViewStateChangeEvent,
 } from '@maplibre/maplibre-react-native';
 import type { AddressSuggestionDto } from '@roadtalk/contracts';
+import { degrees, distanceBetweenMeters } from '@roadtalk/domain-shared';
 import { useFocusEffect, useNavigation } from 'expo-router';
 import type React from 'react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { LayoutChangeEvent, NativeSyntheticEvent } from 'react-native';
-import { Alert, Keyboard, Pressable, TextInput, View } from 'react-native';
+import { Alert, Keyboard, Pressable, TextInput, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { useLastKnownPosition } from '../../lib/useLastKnownPosition';
+import { type LastKnownPosition, useLastKnownPosition } from '../../lib/useLastKnownPosition';
 import { colors, Snackbar, spacing, TAB_BAR_STYLE, Text, useSnackbar } from '../../ui';
 import { withFreshAccessToken } from '../auth/auth.store';
 import { DirectionsSheet } from '../guidance/DirectionsSheet';
@@ -35,6 +36,7 @@ import { RideSummaryScreen } from '../ride-summary/RideSummaryScreen';
 import { type RideSummary, summarizeTrack } from '../ride-summary/summarize-track';
 import type { TrackPoint } from '../ride-summary/track-point';
 import { useTrackRecording } from '../ride-summary/useTrackRecording';
+import { formatDistanceKm } from '../routing/format';
 import { useRoute } from '../routing/useRoute';
 import { saveRoute } from '../saved-routes/api';
 import { usePendingRouteLaunchStore } from '../saved-routes/pendingRouteLaunch.store';
@@ -43,6 +45,7 @@ import { reverseGeocode } from '../search/api';
 import { useSettingsStore } from '../settings/settings.store';
 import { useAppHeaderStore } from './appHeader.store';
 import { APP_HEADER_HEIGHT } from './AppHeader.styles';
+import { fitRoute } from './fit-route';
 import { GuidanceMapButton } from './GuidanceMapButton';
 import { HeadingBadge } from './HeadingBadge';
 import { loadNavigationMapStyle } from './loadMapStyle';
@@ -73,6 +76,12 @@ const FLY_TO_DURATION_MS = 1200;
 // rend la distinction "pas encore arrivé" / "arrivé" peu fiable de toute
 // façon — pas d'intérêt à viser plus précis.
 const ARRIVAL_THRESHOLD_METERS = 20;
+// Marges autour du trajet quand la carte le cadre en entier.
+const FIT_SIDE_MARGIN = 40;
+const FIT_TOP_MARGIN = 180;
+const FIT_BOTTOM_MARGIN = 60;
+// Au-delà, le départ choisi est trop loin pour démarrer le guidage.
+const START_RADIUS_METERS = 1500;
 const ALERT_DISMISS_DELAY_MS = 400;
 // Recalcul hors itinéraire — voir l'effet correspondant dans MapScreen.
 const REROUTE_DELAY_MS = 4000;
@@ -133,6 +142,12 @@ export function MapScreen(): React.JSX.Element {
   // — jamais déduite ou devinée, clé = identité de l'arrêt pour suivre un
   // réordonnement.
   const [stopTags, setStopTags] = useState<ReadonlyMap<string, string>>(new globalThis.Map());
+  // Départ choisi sur la carte (balade préparée ailleurs que là où l'on se
+  // trouve). Absent : le trajet part de la position de l'utilisateur.
+  const [customOrigin, setCustomOrigin] = useState<AddressSuggestionDto | undefined>(undefined);
+  // Vrai quand la prochaine sélection de la recherche doit devenir le départ
+  // et non un arrêt.
+  const [isPickingOrigin, setIsPickingOrigin] = useState(false);
   const [isSavingRoute, setIsSavingRoute] = useState(false);
   const [isRouteSaved, setIsRouteSaved] = useState(false);
   // Toute modification des arrêts invalide la sauvegarde précédente : ce
@@ -162,6 +177,7 @@ export function MapScreen(): React.JSX.Element {
   const cameraRef = useRef<CameraRef>(null);
   const searchInputRef = useRef<TextInput>(null);
   const insets = useSafeAreaInsets();
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const snackbar = useSnackbar();
   const navigation = useNavigation();
   const permission = useUserLocationPermission();
@@ -184,9 +200,10 @@ export function MapScreen(): React.JSX.Element {
   const { route, isComputing: isComputingRoute, error: routeError } = useRoute(
     stops,
     originRef,
-    hasGpsFix,
+    hasGpsFix || customOrigin !== undefined,
     avoidHighways,
     rerouteToken,
+    customOrigin,
   );
   // Deuxième souscription à la même position (VehicleMarker en tient déjà
   // une) : réutilise le flux natif partagé avec <Camera trackUserLocation>
@@ -198,6 +215,42 @@ export function MapScreen(): React.JSX.Element {
   // prend le relais pour la progression, la voix et le recalcul.
   const backgroundPosition = useBackgroundPosition();
   const guidancePosition = newestPosition(vehiclePosition, backgroundPosition);
+
+  // Pour classer les résultats de recherche : autour du départ choisi quand il
+  // y en a un (chercher "Bayonne" depuis Paris ne doit pas favoriser Paris),
+  // sinon autour de l'utilisateur. Lu au moment de la recherche, comme
+  // originRef : aucun rendu n'est déclenché par un changement de position.
+  const customOriginRef = useRef(customOrigin);
+  customOriginRef.current = customOrigin;
+  const searchBiasRef = useMemo(
+    () => ({
+      get current(): LastKnownPosition | undefined {
+        const chosen = customOriginRef.current;
+        return chosen !== undefined
+          ? { latitude: chosen.latitude, longitude: chosen.longitude }
+          : originRef.current;
+      },
+    }),
+    [originRef],
+  );
+
+  // Démarrer n'a de sens que près du départ : un guidage lancé à des
+  // centaines de kilomètres de celui-ci ne mènerait nulle part. On propose
+  // alors d'enregistrer la balade pour la lancer sur place.
+  let startBlockedReason: string | undefined;
+  if (customOrigin !== undefined) {
+    if (vehiclePosition === undefined) {
+      startBlockedReason = 'Position inconnue pour l’instant. Enregistre la balade pour la lancer sur place.';
+    } else {
+      const distanceToStart = distanceBetweenMeters(
+        { latitude: degrees(vehiclePosition.latitude), longitude: degrees(vehiclePosition.longitude) },
+        { latitude: degrees(customOrigin.latitude), longitude: degrees(customOrigin.longitude) },
+      );
+      if (distanceToStart > START_RADIUS_METERS) {
+        startBlockedReason = `Tu es à ${formatDistanceKm(distanceToStart)} du départ. Enregistre la balade pour la lancer sur place.`;
+      }
+    }
+  }
   const progress = useRouteProgress(route, guidancePosition?.latitude, guidancePosition?.longitude);
   const maneuverSteps = useManeuverSteps(route);
   // Accumule le tracé réel pendant le guidage, à partir du même flux de
@@ -280,7 +333,58 @@ export function MapScreen(): React.JSX.Element {
     });
   };
 
+  // Choisit le départ de la balade parmi les résultats de recherche : permet
+  // de préparer un itinéraire ailleurs que là où l'on se trouve.
+  const handleSetOrigin = (suggestion: AddressSuggestionDto): void => {
+    setCustomOrigin(suggestion);
+    setIsPickingOrigin(false);
+    setIsFollowing(false);
+    cameraRef.current?.jumpTo({ center: [suggestion.longitude, suggestion.latitude], zoom: DEFAULT_ZOOM_LEVEL });
+  };
+
+  // Départ choisi ailleurs que là où l'on se trouve : la carte montre le trajet
+  // en entier, pas la position de l'utilisateur (parfois à des centaines de
+  // kilomètres).
+  useEffect(() => {
+    if (customOrigin === undefined || route === undefined || isNavigating) {
+      return;
+    }
+    const fit = fitRoute(route.path, windowWidth - 2 * FIT_SIDE_MARGIN, windowHeight - FIT_TOP_MARGIN - tripSummaryCardHeight - FIT_BOTTOM_MARGIN);
+    if (fit !== undefined) {
+      // Saut direct, pas un vol animé : entre Paris et Bayonne, l'animation
+      // s'arrête en chemin au lieu d'arriver.
+      cameraRef.current?.jumpTo({ center: fit.center, zoom: fit.zoom, pitch: 0, bearing: 0 });
+    }
+    // Au changement de trajet seulement : la hauteur de la feuille bouge avec
+    // son contenu et ne doit pas recadrer la carte à chaque fois.
+  }, [route, customOrigin, isNavigating]);
+
+  const handleResetOrigin = (): void => {
+    setCustomOrigin(undefined);
+    setIsPickingOrigin(false);
+  };
+
   const handleRemoveStop = (index: number): void => {
+    // Retirer le dernier arrêt revient à abandonner l'itinéraire : un départ
+    // choisi ailleurs n'a plus de raison d'être, le prochain itinéraire doit
+    // repartir de la position de l'utilisateur, et la carte y revenir.
+    if (stops.length === 1) {
+      setIsPickingOrigin(false);
+      if (customOrigin !== undefined) {
+        setCustomOrigin(undefined);
+        setIsFollowing(true);
+        const origin = originRef.current;
+        if (origin !== undefined) {
+          // Saut direct : le départ abandonné peut être à des centaines de
+          // kilomètres, distance sur laquelle le vol animé s'arrête en chemin.
+          cameraRef.current?.jumpTo({
+            center: [origin.longitude, origin.latitude],
+            zoom: DEFAULT_ZOOM_LEVEL,
+            pitch: DEFAULT_PITCH_DEGREES,
+          });
+        }
+      }
+    }
     setStops((previous) => previous.filter((_stop, i) => i !== index));
     setStopTags((previous) => {
       const stop = stops[index];
@@ -321,7 +425,7 @@ export function MapScreen(): React.JSX.Element {
   // distinct de la sauvegarde de balade (RideSummaryScreen), qui n'existe
   // qu'une fois la route effectivement roulée.
   const handleSaveRoute = (): void => {
-    const origin = originRef.current;
+    const origin = customOrigin ?? originRef.current;
     if (origin === undefined || route === undefined) {
       return;
     }
@@ -335,6 +439,7 @@ export function MapScreen(): React.JSX.Element {
           ...stops.map((stop) => ({ latitude: stop.latitude, longitude: stop.longitude })),
         ],
         avoidHighways,
+        fixedStart: customOrigin !== undefined,
         distanceMeters: route.distanceMeters,
         durationSeconds: route.durationSeconds,
       }),
@@ -363,6 +468,33 @@ export function MapScreen(): React.JSX.Element {
         return;
       }
       setStops(launch.stops);
+      setCustomOrigin(launch.origin);
+      // Les points d'un itinéraire enregistré n'ont que leurs coordonnées :
+      // on retrouve leurs adresses pour l'affichage, sans toucher au trajet
+      // (même logique que l'appui long sur la carte, voir handleMapLongPress).
+      const resolveLabel = (coordinates: AddressSuggestionDto, apply: (resolved: AddressSuggestionDto) => void): void => {
+        withFreshAccessToken((accessToken) => reverseGeocode(accessToken, coordinates))
+          .then(apply)
+          .catch(() => undefined);
+      };
+      const sameSpot = (a: AddressSuggestionDto, b: AddressSuggestionDto): boolean =>
+        a.latitude === b.latitude && a.longitude === b.longitude;
+      for (const stop of launch.stops) {
+        resolveLabel(stop, (resolved) => {
+          setStops((previous) => previous.map((entry) => (sameSpot(entry, stop) ? { ...resolved, latitude: stop.latitude, longitude: stop.longitude } : entry)));
+        });
+      }
+      if (launch.origin !== undefined) {
+        const originCoordinates = launch.origin;
+        resolveLabel(originCoordinates, (resolved) => {
+          setCustomOrigin((current) =>
+            current !== undefined && sameSpot(current, originCoordinates)
+              ? { ...resolved, latitude: originCoordinates.latitude, longitude: originCoordinates.longitude }
+              : current,
+          );
+        });
+      }
+      setIsPickingOrigin(false);
       setAvoidHighways(launch.avoidHighways);
     }, []),
   );
@@ -434,6 +566,9 @@ export function MapScreen(): React.JSX.Element {
   // GuidanceFooter. Le déplacement immédiat, comme pour le recentrage, évite
   // d'attendre le prochain point GPS pour voir l'effet de l'appui.
   const handleStart = (): void => {
+    if (startBlockedReason !== undefined) {
+      return;
+    }
     setIsNavigating(true);
     setIsFollowing(true);
     // Trajet frais : jamais de points d'une balade précédente mélangés au
@@ -629,6 +764,9 @@ export function MapScreen(): React.JSX.Element {
     if (stopsReached > 0) {
       setStops((previous) => previous.slice(Math.min(stopsReached, previous.length - 1)));
     }
+    // Le recalcul part de la position actuelle : le départ choisi n'a plus de
+    // sens une fois la balade commencée.
+    setCustomOrigin(undefined);
     setRerouteToken((token) => token + 1);
   }, [isNavigating, isOffRoute, progress, isComputingRoute, guidancePosition?.speedMps]);
 
@@ -667,7 +805,12 @@ export function MapScreen(): React.JSX.Element {
           <ManeuverMarker point={progress.nextManeuver.point} />
         ) : null}
         {stops.length > 0 ? (
-          <StopMarkers points={stops.map((stop) => ({ latitude: stop.latitude, longitude: stop.longitude }))} />
+          <StopMarkers
+            points={[...(customOrigin !== undefined ? [customOrigin] : []), ...stops].map((stop) => ({
+              latitude: stop.latitude,
+              longitude: stop.longitude,
+            }))}
+          />
         ) : null}
         {permission === 'granted' && isStyleReady ? <VehicleMarker /> : null}
       </Map>
@@ -703,8 +846,9 @@ export function MapScreen(): React.JSX.Element {
       {!isNavigating ? (
         <AddressSearchBar
           ref={searchInputRef}
-          onSelect={handleAddStop}
-          originRef={originRef}
+          onSelect={isPickingOrigin ? handleSetOrigin : handleAddStop}
+          originRef={searchBiasRef}
+          placeholder={isPickingOrigin ? 'Point de départ…' : 'Destination, col alpin, étape…'}
           onUnavailableFeature={snackbar.show}
           topOffset={APP_HEADER_HEIGHT}
           onPanelVisibleChange={setIsSearchPanelOpen}
@@ -753,6 +897,14 @@ export function MapScreen(): React.JSX.Element {
             searchInputRef.current?.focus();
           }}
           onStart={handleStart}
+          customOriginLabel={customOrigin?.label}
+          onEditOrigin={() => {
+            setIsPickingOrigin(true);
+            searchInputRef.current?.focus();
+          }}
+          onResetOrigin={handleResetOrigin}
+          isPickingOrigin={isPickingOrigin}
+          startBlockedReason={startBlockedReason}
           onSaveRoute={handleSaveRoute}
           isSavingRoute={isSavingRoute}
           isRouteSaved={isRouteSaved}

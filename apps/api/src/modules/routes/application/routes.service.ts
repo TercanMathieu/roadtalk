@@ -25,6 +25,7 @@ export interface SaveRouteInput {
   readonly name: string | undefined;
   readonly waypoints: readonly GeoPoint[];
   readonly routingOptions: RoutingOptions;
+  readonly fixedStart?: boolean;
   readonly distanceMeters: Meters | undefined;
   readonly durationSeconds: Seconds | undefined;
 }
@@ -45,6 +46,7 @@ export class RoutesService {
       waypoints: input.waypoints,
       routingOptions: input.routingOptions,
       source: 'planned',
+      ...(input.fixedStart !== undefined ? { fixedStart: input.fixedStart } : {}),
       createdAt: timestampMs(Date.now()),
     });
     if (!created.ok) {

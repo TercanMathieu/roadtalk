@@ -6,6 +6,8 @@ export interface SaveRouteParams {
   readonly name: string | undefined;
   readonly waypoints: readonly { readonly latitude: number; readonly longitude: number }[];
   readonly avoidHighways: boolean;
+  // Voir RouteDto.fixedStart : vrai quand le départ a été choisi sur la carte.
+  readonly fixedStart: boolean;
   readonly distanceMeters: number | undefined;
   readonly durationSeconds: number | undefined;
 }
@@ -20,6 +22,7 @@ export async function saveRoute(accessToken: string, params: SaveRouteParams): P
       // avoidHighways existe) — false reflète l'état réel, pas une valeur
       // inventée.
       routingOptions: { avoidHighways: params.avoidHighways, avoidTolls: false },
+      fixedStart: params.fixedStart,
       ...(params.distanceMeters !== undefined ? { distanceMeters: params.distanceMeters } : {}),
       ...(params.durationSeconds !== undefined ? { durationSeconds: params.durationSeconds } : {}),
     },

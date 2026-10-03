@@ -41,6 +41,7 @@ function toRouteDto(route: Route): RouteDto {
     waypoints: route.waypoints.map((point) => ({ latitude: point.latitude, longitude: point.longitude })),
     routingOptions: route.routingOptions,
     source: route.source,
+    fixedStart: route.fixedStart,
     ...(route.distanceMeters !== undefined ? { distanceMeters: route.distanceMeters } : {}),
     ...(route.durationSeconds !== undefined ? { durationSeconds: route.durationSeconds } : {}),
     ...(route.elevationGainMeters !== undefined ? { elevationGainMeters: route.elevationGainMeters } : {}),
@@ -70,6 +71,7 @@ export class RoutesController {
         longitude: degrees(point.longitude),
       })),
       routingOptions: body.routingOptions,
+      ...(body.fixedStart !== undefined ? { fixedStart: body.fixedStart } : {}),
       distanceMeters: body.distanceMeters !== undefined ? meters(body.distanceMeters) : undefined,
       durationSeconds: body.durationSeconds !== undefined ? seconds(body.durationSeconds) : undefined,
     });

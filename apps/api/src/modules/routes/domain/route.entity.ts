@@ -26,6 +26,8 @@ export interface Route {
   readonly waypoints: readonly GeoPoint[];
   readonly routingOptions: RoutingOptions;
   readonly source: RouteSource;
+  // Voir routeSchema.fixedStart (contrat).
+  readonly fixedStart: boolean;
   // Calculés par le service de routing (Valhalla, session 7) : absents à la création.
   readonly distanceMeters: Meters | undefined;
   readonly durationSeconds: Seconds | undefined;
@@ -48,6 +50,7 @@ export function createRoute(params: {
   readonly waypoints: readonly GeoPoint[];
   readonly routingOptions: RoutingOptions;
   readonly source: RouteSource;
+  readonly fixedStart?: boolean;
   readonly createdAt: TimestampMs;
 }): Result<Route, RouteValidationError> {
   if (params.waypoints.length < MIN_WAYPOINTS) {
@@ -66,6 +69,7 @@ export function createRoute(params: {
     waypoints: params.waypoints,
     routingOptions: params.routingOptions,
     source: params.source,
+    fixedStart: params.fixedStart ?? false,
     distanceMeters: undefined,
     durationSeconds: undefined,
     elevationGainMeters: undefined,

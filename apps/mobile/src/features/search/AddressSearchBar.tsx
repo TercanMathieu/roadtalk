@@ -38,6 +38,8 @@ interface Props {
   // — lui permet de superposer une zone invisible qui referme le panneau au
   // premier toucher ailleurs à l'écran (voir MapScreen).
   readonly onPanelVisibleChange?: (visible: boolean) => void;
+  // Texte du champ vide — change quand la recherche sert à choisir le départ.
+  readonly placeholder?: string;
 }
 
 const VOICE_SEARCH_UNAVAILABLE_MESSAGE = 'Recherche vocale bientôt disponible.';
@@ -49,6 +51,7 @@ export function AddressSearchBar({
   onUnavailableFeature,
   ref,
   topOffset = 0,
+  placeholder = 'Destination, col alpin, étape…',
   onPanelVisibleChange,
 }: Props): React.JSX.Element {
   const insets = useSafeAreaInsets();
@@ -103,7 +106,7 @@ export function AddressSearchBar({
               onBlur={() => {
                 setIsFocused(false);
               }}
-              placeholder="Destination, col alpin, étape…"
+              placeholder={placeholder}
               placeholderTextColor={colors.textSecondary}
               style={styles.input}
               autoCorrect={false}

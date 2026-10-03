@@ -46,12 +46,15 @@ export function useRoute(
   hasOrigin: boolean,
   avoidHighways: boolean,
   rerouteToken: number,
+  // Départ choisi sur la carte (balade préparée ailleurs que là où l'on se
+  // trouve) ; absent, le trajet part de la position de l'utilisateur.
+  customOrigin: LastKnownPosition | undefined,
 ): RouteState {
   const [route, setRoute] = useState<RouteGeometryDto | undefined>(undefined);
   const [isComputing, setIsComputing] = useState(false);
   const [error, setError] = useState<string | undefined>(undefined);
   const handledRerouteTokenRef = useRef(rerouteToken);
-  const stopCoordinatesKey = stops
+  const stopCoordinatesKey = [...(customOrigin !== undefined ? [customOrigin] : []), ...stops]
     .map((stop) => `${String(stop.latitude)},${String(stop.longitude)}`)
     .join('|');
 
@@ -62,7 +65,11 @@ export function useRoute(
       return;
     }
 
-    const origin = originRef.current;
+    // Un recalcul en guidage part toujours de la position actuelle : le
+    // départ choisi n'est plus le bon point de départ une fois la balade
+    // commencée.
+    const isRerouteRequest = rerouteToken !== handledRerouteTokenRef.current;
+    const origin = isRerouteRequest ? originRef.current : (customOrigin ?? originRef.current);
     if (origin === undefined) {
       // Pas encore de fix GPS (hasOrigin vient de basculer à `true` mais la
       // ref n'a pas eu le temps d'être écrite, ou l'appelant est mal

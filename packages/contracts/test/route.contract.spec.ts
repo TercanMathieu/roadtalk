@@ -12,6 +12,7 @@ const validRoute = {
   routingOptions: { avoidHighways: false, avoidTolls: false },
   source: 'planned',
   isFavorite: false,
+  fixedStart: false,
   createdAt: 0,
 };
 
