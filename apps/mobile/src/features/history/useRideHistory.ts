@@ -1,5 +1,5 @@
 import type { RideListItemDto } from '@roadtalk/contracts';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
 import { withFreshAccessToken } from '../auth/auth.store';
 import { deleteRide, listRides, renameRide as renameRideRequest, setRideFavorite } from './api';
@@ -19,6 +19,8 @@ interface RideHistory {
   readonly renameRide: (id: string, name: string) => void;
 }
 
+// Ne charge rien d'elle-même : l'écran appelle `refresh` à chaque affichage
+// (voir HistoryScreen).
 export function useRideHistory(): RideHistory {
   const [rides, setRides] = useState<readonly RideListItemDto[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -37,8 +39,9 @@ export function useRideHistory(): RideHistory {
         }
       })
       .catch(() => {
+        // La liste déjà affichée reste en place : un échec réseau passager
+        // ne doit pas la vider (C3).
         if (requestIdRef.current === requestId) {
-          setRides([]);
           setError('Historique indisponible.');
         }
       })
@@ -48,10 +51,6 @@ export function useRideHistory(): RideHistory {
         }
       });
   }, []);
-
-  useEffect(() => {
-    refresh();
-  }, [refresh]);
 
   const removeRide = useCallback((id: string): void => {
     const previous = rides;

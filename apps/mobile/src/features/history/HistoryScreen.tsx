@@ -1,7 +1,7 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import type React from 'react';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -54,6 +54,20 @@ export function HistoryScreen(): React.JSX.Element {
     renameRoute,
     toggleFavorite: toggleRouteFavorite,
   } = useSavedRoutes();
+  // Indicateur réservé au geste « tirer pour rafraîchir » : le rechargement
+  // à chaque affichage de l'onglet se fait sans spinner.
+  const [isPullRefreshing, setIsPullRefreshing] = useState(false);
+
+  // À chaque affichage, pas seulement au premier : l'onglet reste monté, et
+  // ce qui est enregistré ailleurs (carte, itinéraire IA, fin de guidage)
+  // n'apparaissait qu'après un rafraîchissement manuel.
+  useFocusEffect(
+    useCallback(() => {
+      setIsPullRefreshing(false);
+      refreshRides();
+      refreshRoutes();
+    }, [refreshRides, refreshRoutes]),
+  );
 
   const latestRide = rides[0];
 
@@ -176,8 +190,9 @@ export function HistoryScreen(): React.JSX.Element {
           contentContainerStyle={styles.listContent}
           refreshControl={
             <RefreshControl
-              refreshing={isLoading}
+              refreshing={isPullRefreshing && isLoading}
               onRefresh={() => {
+                setIsPullRefreshing(true);
                 refreshRides();
                 refreshRoutes();
               }}
