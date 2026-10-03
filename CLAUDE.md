@@ -334,7 +334,12 @@ elle est réglée. Rien de tout ceci n'est déployé aujourd'hui.
   dans `app.json`, fiche de l'app, politique de confidentialité — C4), ajouter
   `expo-task-manager` aux builds natifs, et tester sur un vrai appareil la
   consommation de batterie (C1) et le service de premier plan Android — seul iOS en
-  simulateur a été vérifié. Pas de guidage vocal.
+  simulateur a été vérifié.
+- **Guidage vocal** (`expo-speech` + `expo-audio`, mode d'arrière-plan `audio`) : voix
+  du système, donc dépendante de l'appareil. Android : vérifier qu'un moteur de
+  synthèse avec une voix française est installé (sinon la voix par défaut lit mal
+  le français), et tester le comportement avec un casque Bluetooth. Pas de choix de
+  voix ni de volume dans l'app.
 - **Écrans encore en maquette** à retirer ou terminer : génération d'itinéraire par
   IA, import GPX, cartes hors-ligne, zones de danger.
 

@@ -3,6 +3,7 @@ import * as Location from 'expo-location';
 import * as TaskManager from 'expo-task-manager';
 
 import { toEpochMs } from '../map/epoch';
+import { publishBackgroundPosition } from './background-position';
 import { appendToJournal } from './ride-journal';
 import type { TrackPoint } from './track-point';
 
@@ -37,7 +38,19 @@ function toTrackPoint(location: Location.LocationObject): TrackPoint {
 // Le gestionnaire doit renvoyer une promesse : l'écriture, elle, est synchrone.
 TaskManager.defineTask<{ locations?: Location.LocationObject[] }>(TASK_NAME, ({ data, error }) => {
   if (error === null && data.locations !== undefined) {
-    appendToJournal(data.locations.map(toTrackPoint));
+    const points = data.locations.map(toTrackPoint);
+    appendToJournal(points);
+    // Le guidage (progression, voix, recalcul) se nourrit aussi de ces
+    // points : le flux de la carte, lui, est coupé en arrière-plan.
+    const last = points[points.length - 1];
+    if (last !== undefined) {
+      publishBackgroundPosition({
+        latitude: last.position.latitude,
+        longitude: last.position.longitude,
+        speedMps: last.speedMps,
+        recordedAt: last.recordedAt,
+      });
+    }
   }
   return Promise.resolve();
 });

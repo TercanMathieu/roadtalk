@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { colors, spacing, Text } from '../../ui';
 import { formatManeuverDistanceParts } from '../routing/format';
+import type { GuidanceStatus } from './guidance-status';
 import { getManeuverLabel } from './maneuver-labels';
 import { styles } from './ManeuverBanner.styles';
 import { ManeuverIcon } from './ManeuverIcon';
@@ -16,8 +17,6 @@ const THEN_ICON_SIZE = 24;
 // En dessous, un décompte en mètres n'aide plus : le GPS n'est pas assez
 // précis et il n'y a plus le temps de le lire — c'est le moment d'agir.
 const NOW_THRESHOLD_METERS = 30;
-
-export type GuidanceStatus = 'on-route' | 'off-route' | 'rerouting';
 
 interface Props {
   readonly status: GuidanceStatus;

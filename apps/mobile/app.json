@@ -15,7 +15,10 @@
       "bundleIdentifier": "app.roadtalk.mobile",
       "supportsTablet": false,
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "UIBackgroundModes": [
+          "audio"
+        ]
       }
     },
     "android": {
@@ -41,7 +44,13 @@
           "iosUrlScheme": "com.googleusercontent.apps.854119867118-j9lta04gjm17ep9smll6jnhts15s5tnc"
         }
       ],
-      "expo-font"
+      "expo-font",
+      [
+        "expo-audio",
+        {
+          "microphonePermission": false
+        }
+      ]
     ],
     "extra": {
       "router": {

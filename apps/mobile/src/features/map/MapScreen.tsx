@@ -21,11 +21,14 @@ import { useLastKnownPosition } from '../../lib/useLastKnownPosition';
 import { colors, Snackbar, spacing, TAB_BAR_STYLE, Text, useSnackbar } from '../../ui';
 import { withFreshAccessToken } from '../auth/auth.store';
 import { DirectionsSheet } from '../guidance/DirectionsSheet';
+import type { GuidanceStatus } from '../guidance/guidance-status';
 import { GuidanceFooter } from '../guidance/GuidanceFooter';
-import { type GuidanceStatus, ManeuverBanner } from '../guidance/ManeuverBanner';
+import { ManeuverBanner } from '../guidance/ManeuverBanner';
 import { ManeuverMarker } from '../guidance/ManeuverMarker';
 import { OFF_ROUTE_THRESHOLD_METERS } from '../guidance/route-progress';
 import { useManeuverSteps, useRouteProgress } from '../guidance/useRouteProgress';
+import { useVoiceGuidance } from '../guidance/useVoiceGuidance';
+import { useBackgroundPosition } from '../ride-summary/background-position';
 import { stopBackgroundRecording } from '../ride-summary/background-recording';
 import { discardJournal, readJournal } from '../ride-summary/ride-journal';
 import { RideSummaryScreen } from '../ride-summary/RideSummaryScreen';
@@ -53,6 +56,7 @@ import {
 } from './map.config';
 import { MapModeButton } from './MapModeButton';
 import { styles } from './MapScreen.styles';
+import { newestPosition } from './newest-position';
 import { RecenterButton } from './RecenterButton';
 import { MAP_OVERLAY_BUTTON_SIZE } from './RecenterButton.styles';
 import { RouteLine } from './RouteLine';
@@ -190,7 +194,11 @@ export function MapScreen(): React.JSX.Element {
   // un second écouteur JS, négligeable comparé à refactorer VehicleMarker
   // pour faire remonter sa position en prop.
   const vehiclePosition = useVehiclePosition();
-  const progress = useRouteProgress(route, vehiclePosition?.latitude, vehiclePosition?.longitude);
+  // Écran verrouillé, le flux ci-dessus s'arrête : la tâche d'arrière-plan
+  // prend le relais pour la progression, la voix et le recalcul.
+  const backgroundPosition = useBackgroundPosition();
+  const guidancePosition = newestPosition(vehiclePosition, backgroundPosition);
+  const progress = useRouteProgress(route, guidancePosition?.latitude, guidancePosition?.longitude);
   const maneuverSteps = useManeuverSteps(route);
   // Accumule le tracé réel pendant le guidage, à partir du même flux de
   // position (aucune souscription GPS supplémentaire, C1) — sert au résumé
@@ -577,6 +585,13 @@ export function MapScreen(): React.JSX.Element {
   const guidanceStatus: GuidanceStatus =
     isNavigating && isComputingRoute ? 'rerouting' : isOffRoute ? 'off-route' : 'on-route';
 
+  useVoiceGuidance({
+    enabled: isNavigating && voiceEnabled,
+    progress,
+    speedMps: guidancePosition?.speedMps,
+    status: guidanceStatus,
+  });
+
   // Recalcul automatique : sorti du tracé depuis quelques secondes et en
   // mouvement, on redemande un itinéraire depuis la position actuelle vers
   // les arrêts restants. Évalué à chaque point GPS (`progress` change), sans
@@ -596,7 +611,7 @@ export function MapScreen(): React.JSX.Element {
 
     const now = Date.now();
     offRouteSinceRef.current ??= now;
-    const isMoving = (vehiclePosition?.speedMps ?? 0) >= REROUTE_MIN_SPEED_MPS;
+    const isMoving = (guidancePosition?.speedMps ?? 0) >= REROUTE_MIN_SPEED_MPS;
     if (
       isComputingRoute ||
       !isMoving ||
@@ -615,7 +630,7 @@ export function MapScreen(): React.JSX.Element {
       setStops((previous) => previous.slice(Math.min(stopsReached, previous.length - 1)));
     }
     setRerouteToken((token) => token + 1);
-  }, [isNavigating, isOffRoute, progress, isComputingRoute, vehiclePosition?.speedMps]);
+  }, [isNavigating, isOffRoute, progress, isComputingRoute, guidancePosition?.speedMps]);
 
   return (
     <View style={styles.container}>
