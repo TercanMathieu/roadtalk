@@ -18,6 +18,14 @@ export const ERROR_CATALOG: Record<ErrorCode, ErrorDefinition> = {
     status: HttpStatus.CONFLICT,
     message: 'Ce pseudo est déjà pris',
   },
+  [ErrorCode.USERNAME_NOT_ALLOWED]: {
+    status: HttpStatus.UNPROCESSABLE_ENTITY,
+    message: "Ce pseudo n'est pas autorisé",
+  },
+  [ErrorCode.USERNAME_CHANGE_TOO_SOON]: {
+    status: HttpStatus.CONFLICT,
+    message: 'Le pseudo ne peut être modifié que tous les 3 mois',
+  },
   [ErrorCode.AUTH_TOKEN_MISSING]: {
     status: HttpStatus.UNAUTHORIZED,
     message: 'En-tête Authorization manquant ou mal formé',

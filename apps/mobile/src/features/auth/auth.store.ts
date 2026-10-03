@@ -3,7 +3,7 @@ import * as SecureStore from 'expo-secure-store';
 import { create } from 'zustand';
 
 import { ApiError } from '../../lib/http';
-import { getMe, setUsername as apiSetUsername } from '../profile/api';
+import { getMe, setHandle } from '../profile/api';
 import { loginWithGoogle, logout, refreshTokenPair } from './api';
 
 const REFRESH_TOKEN_KEY = 'roadtalk_refresh_token';
@@ -16,12 +16,19 @@ interface AuthState {
   // undefined : pas encore su (avant la première résolution de session).
   // null : su, mais l'utilisateur ne l'a pas encore choisi.
   readonly username: string | null | undefined;
+  // Tag de l'identifiant "Pseudo#TAG" — renseigné en même temps que username.
+  readonly tag: string | undefined;
+  // Date (ms) à partir de laquelle l'identifiant pourra être modifié de
+  // nouveau ; undefined = modifiable dès maintenant.
+  readonly usernameChangeAllowedAt: number | undefined;
+  // Présent quand la modération a retiré l'identifiant précédent.
+  readonly usernameRejectedAt: number | undefined;
   readonly email: string | undefined;
   readonly provider: UserDto['provider'] | undefined;
   readonly hydrate: () => Promise<void>;
   readonly signInWithGoogle: (idToken: string) => Promise<void>;
   readonly signOut: () => Promise<void>;
-  readonly chooseUsername: (username: string) => Promise<void>;
+  readonly saveHandle: (username: string, tag: string) => Promise<void>;
 }
 
 // Seul le refresh token (opaque, rotatif) est persisté sur l'appareil — via
@@ -31,6 +38,9 @@ export const useAuthStore = create<AuthState>((set) => ({
   status: 'checking',
   accessToken: undefined,
   username: undefined,
+  tag: undefined,
+  usernameChangeAllowedAt: undefined,
+  usernameRejectedAt: undefined,
   email: undefined,
   provider: undefined,
 
@@ -49,7 +59,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       set({
         status: 'authenticated',
         accessToken: tokens.accessToken,
-        username: me.username,
+        ...toProfileState(me),
         email: me.email,
         provider: me.provider,
       });
@@ -66,7 +76,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({
       status: 'authenticated',
       accessToken: tokens.accessToken,
-      username: me.username,
+      ...toProfileState(me),
       email: me.email,
       provider: me.provider,
     });
@@ -84,16 +94,30 @@ export const useAuthStore = create<AuthState>((set) => ({
       status: 'unauthenticated',
       accessToken: undefined,
       username: undefined,
+      tag: undefined,
+      usernameChangeAllowedAt: undefined,
+      usernameRejectedAt: undefined,
       email: undefined,
       provider: undefined,
     });
   },
 
-  chooseUsername: async (username: string) => {
-    const me = await withFreshAccessToken((accessToken) => apiSetUsername(accessToken, username));
-    set({ username: me.username });
+  saveHandle: async (username: string, tag: string) => {
+    const me = await withFreshAccessToken((accessToken) => setHandle(accessToken, username, tag));
+    set(toProfileState(me));
   },
 }));
+
+function toProfileState(
+  me: UserDto,
+): Pick<AuthState, 'username' | 'tag' | 'usernameChangeAllowedAt' | 'usernameRejectedAt'> {
+  return {
+    username: me.username,
+    tag: me.tag ?? undefined,
+    usernameChangeAllowedAt: me.usernameChangeAllowedAt ?? undefined,
+    usernameRejectedAt: me.usernameRejectedAt ?? undefined,
+  };
+}
 
 // Un seul rafraîchissement en vol à la fois. Nos refresh tokens tournent à
 // chaque usage et un jeton révoqué qu'on réutilise est traité comme un vol

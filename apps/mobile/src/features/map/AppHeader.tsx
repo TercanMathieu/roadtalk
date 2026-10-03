@@ -57,9 +57,9 @@ export function AppHeader({ gpsStatus }: Props): React.JSX.Element {
 
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Profil"
+            accessibilityLabel="Ma fiche"
             onPress={() => {
-              router.push('/settings');
+              router.push('/profile');
             }}
             style={styles.avatarButton}
           >
