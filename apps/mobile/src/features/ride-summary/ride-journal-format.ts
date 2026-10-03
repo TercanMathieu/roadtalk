@@ -93,5 +93,10 @@ export function decodeJournal(text: string): RecoveredRide | undefined {
     }
   }
 
+  // Deux sources écrivent dans le même fichier (le flux de l'écran et la tâche
+  // d'arrière-plan) : leurs lignes peuvent s'entremêler. Remise dans l'ordre
+  // du temps ; le tri est stable, des points simultanés gardent leur ordre.
+  dtos.sort((a, b) => a.recordedAt - b.recordedAt);
+
   return { header, points: toTrackPoints(dtos) };
 }

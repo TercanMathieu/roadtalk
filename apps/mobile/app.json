@@ -27,7 +27,11 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "RoadTalk utilise ta position pour te situer sur la carte."
+          "locationWhenInUsePermission": "RoadTalk utilise ta position pour te situer sur la carte.",
+          "locationAlwaysAndWhenInUsePermission": "RoadTalk enregistre le tracé de ta balade même quand l'écran est verrouillé. Ta position reste sur ton téléphone jusqu'à ce que tu sauvegardes la balade.",
+          "isIosBackgroundLocationEnabled": true,
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
         }
       ],
       "expo-secure-store",

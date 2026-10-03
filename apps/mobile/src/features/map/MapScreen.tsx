@@ -26,6 +26,7 @@ import { type GuidanceStatus, ManeuverBanner } from '../guidance/ManeuverBanner'
 import { ManeuverMarker } from '../guidance/ManeuverMarker';
 import { OFF_ROUTE_THRESHOLD_METERS } from '../guidance/route-progress';
 import { useManeuverSteps, useRouteProgress } from '../guidance/useRouteProgress';
+import { stopBackgroundRecording } from '../ride-summary/background-recording';
 import { discardJournal, readJournal } from '../ride-summary/ride-journal';
 import { RideSummaryScreen } from '../ride-summary/RideSummaryScreen';
 import { type RideSummary, summarizeTrack } from '../ride-summary/summarize-track';
@@ -454,8 +455,7 @@ export function MapScreen(): React.JSX.Element {
     // Le journal est complété avant le résumé : il reste sur le disque
     // jusqu'à la sauvegarde ou la fermeture du résumé, pour qu'un arrêt de
     // l'app sur cet écran ne fasse pas perdre la balade.
-    trackRecording.flush();
-    const recordedPoints = trackRecording.getPoints();
+    const recordedPoints = trackRecording.stop();
     const recordedRideId = trackRecording.getRideId();
     if (recordedPoints.length >= 2 && recordedRideId !== undefined) {
       setRideSummary({ rideId: recordedRideId, summary: summarizeTrack(recordedPoints), points: recordedPoints });
@@ -491,6 +491,10 @@ export function MapScreen(): React.JSX.Element {
   // est resté sur le disque. Une seule fois au démarrage, on propose d'en
   // voir le résumé (pour la sauvegarder) ou de la supprimer.
   useEffect(() => {
+    // Aucun guidage ne peut être en cours à l'ouverture de l'app : une tâche
+    // d'arrière-plan encore active est celle de la balade interrompue, que
+    // le système aurait relancée. On l'arrête avant de lire le journal.
+    stopBackgroundRecording().catch(() => undefined);
     const recovered = readJournal();
     if (recovered === undefined) {
       return;

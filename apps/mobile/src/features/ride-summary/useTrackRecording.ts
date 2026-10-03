@@ -2,7 +2,8 @@ import { degrees, type Meters, type MetersPerSecond, type TimestampMs } from '@r
 import { useEffect, useRef } from 'react';
 import { AppState } from 'react-native';
 
-import { appendToJournal, startJournal } from './ride-journal';
+import { startBackgroundRecording, stopBackgroundRecording } from './background-recording';
+import { appendToJournal, readJournal, startJournal } from './ride-journal';
 import { createRideId } from './rideId';
 import type { TrackPoint } from './track-point';
 
@@ -21,15 +22,12 @@ interface TrackRecording {
   // balade. Appelé au démarrage d'un guidage, jamais pendant (sinon la balade
   // en cours perdrait ses premiers points).
   readonly start: () => string;
-  // Écrit sur le disque les points encore en attente. À appeler à la fin du
-  // guidage : le journal est alors complet avant l'écran de résumé.
-  readonly flush: () => void;
+  // Termine l'enregistrement : arrête la tâche d'arrière-plan, complète le
+  // journal sur le disque et renvoie le tracé complet. À appeler à la fin du
+  // guidage ; le journal est alors à jour avant l'écran de résumé.
+  readonly stop: () => readonly TrackPoint[];
   // Identifiant de la balade en cours ou tout juste terminée.
   readonly getRideId: () => string | undefined;
-  // Lecture ponctuelle (à la sortie du guidage), pas un état React : ce
-  // tracé peut contenir des milliers de points sur une longue balade,
-  // le garder hors du state évite un re-rendu à chaque point GPS.
-  readonly getPoints: () => readonly TrackPoint[];
 }
 
 // Les points sont écrits sur le disque par paquets, pas un par un : à vitesse
@@ -46,13 +44,20 @@ export function useTrackRecording(point: LivePoint | undefined, isRecording: boo
   const pointsRef = useRef<TrackPoint[]>([]);
   const pendingRef = useRef<TrackPoint[]>([]);
   const rideIdRef = useRef<string | undefined>(undefined);
+  // Vrai quand la tâche d'arrière-plan est active : c'est alors elle qui écrit
+  // le journal, l'interface ne le fait plus (sinon chaque point y serait deux
+  // fois). Avant qu'elle ne démarre, et si la permission est refusée,
+  // l'interface reste seule à l'alimenter.
+  const isBackgroundActiveRef = useRef(false);
   const lastRecordedAtRef = useRef<TimestampMs | undefined>(undefined);
 
   const flush = (): void => {
     if (pendingRef.current.length === 0) {
       return;
     }
-    appendToJournal(pendingRef.current);
+    if (!isBackgroundActiveRef.current) {
+      appendToJournal(pendingRef.current);
+    }
     pendingRef.current = [];
   };
 
@@ -102,16 +107,30 @@ export function useTrackRecording(point: LivePoint | undefined, isRecording: boo
       pendingRef.current = [];
       lastRecordedAtRef.current = undefined;
       rideIdRef.current = rideId;
+      isBackgroundActiveRef.current = false;
       try {
         startJournal({ rideId, startedAt: Date.now() });
       } catch {
         // Pas de journal (disque plein…) : la balade s'enregistre quand même
         // en mémoire, sans protection contre un arrêt brutal.
       }
+      startBackgroundRecording()
+        .then((isActive) => {
+          isBackgroundActiveRef.current = isActive;
+        })
+        .catch(() => undefined);
       return rideId;
     },
-    flush,
+    stop: () => {
+      stopBackgroundRecording().catch(() => undefined);
+      isBackgroundActiveRef.current = false;
+      flush();
+      // Le journal fait foi : il contient aussi ce que la tâche d'arrière-plan
+      // a enregistré pendant que l'interface ne recevait plus rien. La
+      // mémoire ne sert que si le journal est illisible.
+      const fromJournal = readJournal()?.points ?? [];
+      return fromJournal.length >= pointsRef.current.length ? fromJournal : pointsRef.current;
+    },
     getRideId: () => rideIdRef.current,
-    getPoints: () => pointsRef.current,
   };
 }
