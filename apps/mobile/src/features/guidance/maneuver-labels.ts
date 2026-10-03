@@ -27,7 +27,7 @@ const MANEUVER_LABELS: Record<ManeuverType, string> = {
 // 1 → "1re", le reste → "2e", "3e", ... — même convention que les
 // instructions françaises de Valhalla (vérifié en direct : "prenez la 2e
 // sortie").
-function ordinal(n: number): string {
+export function ordinal(n: number): string {
   return n === 1 ? '1re' : `${String(n)}e`;
 }
 
