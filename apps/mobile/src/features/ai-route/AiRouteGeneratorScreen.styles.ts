@@ -110,6 +110,10 @@ export const styles = StyleSheet.create({
   listRowLabel: {
     flexShrink: 1,
   },
+  placeValue: {
+    flex: 1,
+    textAlign: 'right',
+  },
   notesInput: {
     minHeight: 88,
     padding: spacing.md,
@@ -135,10 +139,22 @@ export const styles = StyleSheet.create({
     borderRadius: 14,
     backgroundColor: colors.accent,
   },
+  generateButtonDisabled: {
+    opacity: 0.6,
+  },
   generateButtonLabel: {
     fontSize: 17,
   },
+  footerHint: {
+    textAlign: 'center',
+    marginBottom: spacing.sm,
+  },
   pressed: {
     opacity: 0.85,
+  },
+  snackbarWrapper: {
+    position: 'absolute',
+    left: spacing.md,
+    right: spacing.md,
   },
 });

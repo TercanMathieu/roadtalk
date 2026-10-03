@@ -1,17 +1,26 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import {
+  type AddressSuggestionDto,
+  AI_ROUTE_MAX_DURATION_MINUTES,
+  AI_ROUTE_NOTES_MAX_LENGTH,
+  type GenerateAiRouteRequestDto,
+} from '@roadtalk/contracts';
 import { router } from 'expo-router';
 import type React from 'react';
-import { useState } from 'react';
-import { Pressable, ScrollView, TextInput, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { colors, MockBanner, spacing, Text, Toggle } from '../../ui';
+import { useLastKnownPosition } from '../../lib/useLastKnownPosition';
+import { colors, Snackbar, spacing, Text, Toggle, useSnackbar } from '../../ui';
+import { useAiRouteStore } from './aiRoute.store';
 import { styles } from './AiRouteGeneratorScreen.styles';
+import { PlacePickerSheet } from './PlacePickerSheet';
 
-type TripType = 'loop' | 'one-way';
-type Sinuosity = 'direct' | 'moderate' | 'winding' | 'hairpins';
-type RoadPreference = 'avoidHighways' | 'goodSurface' | 'scenic';
-type StopKind = 'passes' | 'coffee' | 'viewpoint';
+type TripType = GenerateAiRouteRequestDto['tripType'];
+type Sinuosity = GenerateAiRouteRequestDto['sinuosity'];
+type RoadPreference = GenerateAiRouteRequestDto['roadPreferences'][number];
+type StopKind = GenerateAiRouteRequestDto['stopKinds'][number];
 
 interface Option<T extends string> {
   readonly value: T;
@@ -45,7 +54,7 @@ const STOP_KINDS: readonly Option<StopKind>[] = [
 const DURATION_PRESETS_HOURS: readonly number[] = [1.5, 3, 6];
 const DURATION_STEP_HOURS = 0.5;
 const MIN_DURATION_HOURS = 1;
-const MAX_DURATION_HOURS = 10;
+const MAX_DURATION_HOURS = AI_ROUTE_MAX_DURATION_MINUTES / 60;
 
 function formatDurationHours(hours: number): string {
   const wholeHours = Math.floor(hours);
@@ -53,13 +62,26 @@ function formatDurationHours(hours: number): string {
   return `${String(wholeHours)} h ${String(minutes).padStart(2, '0')}`;
 }
 
-// Aucun moteur de génération d'itinéraire n'existe (pas de modèle, pas de
-// routage par sinuosité) : cet écran est l'aperçu interactif d'une fonction
-// prévue. Les contrôles réagissent localement, mais "Générer" mène à un
-// exemple illustratif (AiRoutePreviewScreen), jamais à un vrai calcul — voir
-// MockBanner en tête d'écran.
+const START_DEFAULT = { label: 'Ma position', icon: 'crosshairs-gps' } as const;
+const DESTINATION_DEFAULT = { label: 'Au choix de l’IA', icon: 'creation' } as const;
+
+// Départ et arrivée ne quittent le téléphone que vers notre API, qui n'en
+// transmet que la commune au modèle d'IA (ADR-004).
 export function AiRouteGeneratorScreen(): React.JSX.Element {
   const insets = useSafeAreaInsets();
+  const snackbar = useSnackbar();
+  const { positionRef, hasFix } = useLastKnownPosition(true);
+  const isGenerating = useAiRouteStore((state) => state.isGenerating);
+  const generate = useAiRouteStore((state) => state.generate);
+  // La génération dure jusqu'à une minute : si l'écran a été quitté entre-
+  // temps, ne pas y ramener le motard de force avec l'aperçu.
+  const isMountedRef = useRef(true);
+  useEffect(
+    () => () => {
+      isMountedRef.current = false;
+    },
+    [],
+  );
   const [tripType, setTripType] = useState<TripType>('loop');
   const [durationHours, setDurationHours] = useState(3);
   const [sinuosity, setSinuosity] = useState<Sinuosity>('winding');
@@ -68,10 +90,63 @@ export function AiRouteGeneratorScreen(): React.JSX.Element {
   );
   const [stopKinds, setStopKinds] = useState<ReadonlySet<StopKind>>(new Set<StopKind>(['coffee']));
   const [notes, setNotes] = useState('');
+  // `undefined` : ma position (départ), arrivée au choix de l'IA (arrivée).
+  const [startPlace, setStartPlace] = useState<AddressSuggestionDto | undefined>(undefined);
+  const [destinationPlace, setDestinationPlace] = useState<AddressSuggestionDto | undefined>(
+    undefined,
+  );
+  const [openPicker, setOpenPicker] = useState<'start' | 'destination' | undefined>(undefined);
+  // Une arrivée choisie reste en mémoire si l'on repasse en boucle, mais
+  // n'est envoyée que pour un aller simple.
+  const destination = tripType === 'one-way' ? destinationPlace : undefined;
 
   const adjustDuration = (deltaHours: number): void => {
-    setDurationHours((previous) => Math.min(MAX_DURATION_HOURS, Math.max(MIN_DURATION_HOURS, previous + deltaHours)));
+    setDurationHours((previous) =>
+      Math.min(MAX_DURATION_HOURS, Math.max(MIN_DURATION_HOURS, previous + deltaHours)),
+    );
   };
+
+  const hasStart = startPlace !== undefined || hasFix;
+  const canGenerate = hasStart && !isGenerating;
+
+  const handleGenerate = (): void => {
+    const origin = startPlace ?? positionRef.current;
+    if (origin === undefined || isGenerating) {
+      return;
+    }
+    const trimmedNotes = notes.trim();
+    generate(
+      {
+        origin: { latitude: origin.latitude, longitude: origin.longitude },
+        tripType,
+        ...(destination !== undefined
+          ? { destination: { latitude: destination.latitude, longitude: destination.longitude } }
+          : {}),
+        durationMinutes: Math.round(durationHours * 60),
+        sinuosity,
+        roadPreferences: [...roadPreferences],
+        stopKinds: [...stopKinds],
+        ...(trimmedNotes.length > 0 ? { notes: trimmedNotes } : {}),
+      },
+      { start: startPlace, destination },
+    )
+      .then(() => {
+        if (isMountedRef.current) {
+          router.push('/ai-route-preview');
+        }
+      })
+      .catch((error: unknown) => {
+        if (isMountedRef.current && error instanceof Error) {
+          snackbar.show(error.message);
+        }
+      });
+  };
+
+  const footerHint = !hasStart
+    ? 'En attente de ta position…'
+    : isGenerating
+      ? 'Composition de la balade, jusqu’à une minute.'
+      : undefined;
 
   return (
     <View style={styles.container}>
@@ -93,10 +168,29 @@ export function AiRouteGeneratorScreen(): React.JSX.Element {
       </View>
 
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <MockBanner message="Aperçu — la génération IA n'existe pas encore. Générer affiche un exemple." />
-
         <Section title="Trajet">
           <OptionGroup options={TRIP_TYPES} value={tripType} onChange={setTripType} />
+          <View style={styles.listCard}>
+            <PlaceRow
+              label="Départ"
+              value={startPlace?.label ?? START_DEFAULT.label}
+              isDefault={startPlace === undefined}
+              onPress={() => {
+                setOpenPicker('start');
+              }}
+            />
+            {tripType === 'one-way' ? (
+              <PlaceRow
+                label="Arrivée"
+                value={destinationPlace?.label ?? DESTINATION_DEFAULT.label}
+                isDefault={destinationPlace === undefined}
+                hasDivider
+                onPress={() => {
+                  setOpenPicker('destination');
+                }}
+              />
+            ) : null}
+          </View>
         </Section>
 
         <Section title="Durée">
@@ -150,7 +244,10 @@ export function AiRouteGeneratorScreen(): React.JSX.Element {
         <Section title="Routes">
           <View style={styles.listCard}>
             {ROAD_PREFERENCES.map((preference, index) => (
-              <View key={preference.value} style={[styles.listRow, index > 0 ? styles.listRowDivider : null]}>
+              <View
+                key={preference.value}
+                style={[styles.listRow, index > 0 ? styles.listRowDivider : null]}
+              >
                 <Text variant="body" style={styles.listRowLabel}>
                   {preference.label}
                 </Text>
@@ -188,29 +285,106 @@ export function AiRouteGeneratorScreen(): React.JSX.Element {
             placeholder="Décris la balade que tu imagines…"
             placeholderTextColor={colors.textSecondary}
             style={styles.notesInput}
+            maxLength={AI_ROUTE_NOTES_MAX_LENGTH}
             multiline
           />
         </Section>
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.sm }]}>
+        {footerHint !== undefined ? (
+          <Text variant="caption" color={colors.textSecondary} style={styles.footerHint}>
+            {footerHint}
+          </Text>
+        ) : null}
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Générer l'itinéraire"
-          // Pas de génération réelle à lancer (voir bandeau en tête d'écran) :
-          // mène à l'aperçu illustratif, qui montre le résultat visé.
-          onPress={() => {
-            router.push('/ai-route-preview');
-          }}
-          style={({ pressed }) => [styles.generateButton, pressed ? styles.pressed : null]}
+          accessibilityState={{ disabled: !canGenerate, busy: isGenerating }}
+          disabled={!canGenerate}
+          onPress={handleGenerate}
+          style={({ pressed }) => [
+            styles.generateButton,
+            !canGenerate ? styles.generateButtonDisabled : null,
+            pressed ? styles.pressed : null,
+          ]}
         >
-          <MaterialCommunityIcons name="creation" size={20} color={colors.onAccentLight} />
+          {isGenerating ? (
+            <ActivityIndicator color={colors.onAccentLight} />
+          ) : (
+            <MaterialCommunityIcons name="creation" size={20} color={colors.onAccentLight} />
+          )}
           <Text variant="title" color={colors.onAccentLight} style={styles.generateButtonLabel}>
-            Générer
+            {isGenerating ? 'Génération…' : 'Générer'}
           </Text>
         </Pressable>
       </View>
+
+      <View style={[styles.snackbarWrapper, { bottom: insets.bottom + 96 }]}>
+        <Snackbar message={snackbar.message} />
+      </View>
+
+      <PlacePickerSheet
+        visible={openPicker !== undefined}
+        title={openPicker === 'destination' ? 'Arrivée' : 'Départ'}
+        defaultOption={openPicker === 'destination' ? DESTINATION_DEFAULT : START_DEFAULT}
+        biasRef={positionRef}
+        onSelect={(place) => {
+          if (openPicker === 'destination') {
+            setDestinationPlace(place);
+          } else {
+            setStartPlace(place);
+          }
+          setOpenPicker(undefined);
+        }}
+        onClose={() => {
+          setOpenPicker(undefined);
+        }}
+      />
     </View>
+  );
+}
+
+interface PlaceRowProps {
+  readonly label: string;
+  readonly value: string;
+  // Valeur par défaut (ma position, choix de l'IA) : affichée en retrait.
+  readonly isDefault: boolean;
+  readonly hasDivider?: boolean;
+  readonly onPress: () => void;
+}
+
+function PlaceRow({
+  label,
+  value,
+  isDefault,
+  hasDivider,
+  onPress,
+}: PlaceRowProps): React.JSX.Element {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${label} : ${value}`}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.listRow,
+        hasDivider === true ? styles.listRowDivider : null,
+        pressed ? styles.pressed : null,
+      ]}
+    >
+      <Text variant="body" style={styles.listRowLabel}>
+        {label}
+      </Text>
+      <Text
+        variant="body"
+        color={isDefault ? colors.textSecondary : colors.textPrimary}
+        numberOfLines={1}
+        style={styles.placeValue}
+      >
+        {value}
+      </Text>
+      <MaterialCommunityIcons name="chevron-right" size={20} color={colors.textSecondary} />
+    </Pressable>
   );
 }
 
@@ -246,7 +420,11 @@ interface OptionGroupProps<T extends string> {
 
 // Choix exclusif sur toute la largeur (SegmentedToggle, lui, se dimensionne
 // à son contenu — adapté à une ligne de réglage, pas à un champ de formulaire).
-function OptionGroup<T extends string>({ options, value, onChange }: OptionGroupProps<T>): React.JSX.Element {
+function OptionGroup<T extends string>({
+  options,
+  value,
+  onChange,
+}: OptionGroupProps<T>): React.JSX.Element {
   return (
     <View style={styles.optionGroup}>
       {options.map((option) => {
@@ -261,7 +439,11 @@ function OptionGroup<T extends string>({ options, value, onChange }: OptionGroup
             }}
             style={[styles.option, isActive ? styles.optionActive : null]}
           >
-            <Text variant="captionStrong" color={isActive ? colors.textPrimary : colors.textSecondary} numberOfLines={1}>
+            <Text
+              variant="captionStrong"
+              color={isActive ? colors.textPrimary : colors.textSecondary}
+              numberOfLines={1}
+            >
               {option.label}
             </Text>
           </Pressable>

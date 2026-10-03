@@ -60,6 +60,22 @@ export const ERROR_CATALOG: Record<ErrorCode, ErrorDefinition> = {
     status: HttpStatus.BAD_GATEWAY,
     message: 'Service de recherche d\'adresse momentanément indisponible',
   },
+  [ErrorCode.AI_ROUTE_UNAVAILABLE]: {
+    status: HttpStatus.SERVICE_UNAVAILABLE,
+    message: "Génération d'itinéraire momentanément indisponible",
+  },
+  [ErrorCode.AI_ROUTE_QUOTA_EXCEEDED]: {
+    status: HttpStatus.TOO_MANY_REQUESTS,
+    message: "Nombre maximal de générations atteint pour aujourd'hui",
+  },
+  [ErrorCode.AI_ROUTE_GENERATION_FAILED]: {
+    status: HttpStatus.UNPROCESSABLE_ENTITY,
+    message: "Impossible de construire un itinéraire avec ces critères",
+  },
+  [ErrorCode.AI_ROUTE_DESTINATION_TOO_FAR]: {
+    status: HttpStatus.UNPROCESSABLE_ENTITY,
+    message: 'Arrivée trop éloignée pour la durée choisie',
+  },
   [ErrorCode.ROUTING_PROVIDER_UNAVAILABLE]: {
     status: HttpStatus.BAD_GATEWAY,
     message: 'Service de calcul d\'itinéraire momentanément indisponible',

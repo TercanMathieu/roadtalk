@@ -9,5 +9,7 @@ import { SearchService } from './search.service';
   imports: [AuthInfrastructureModule],
   controllers: [SearchController],
   providers: [SearchService, PhotonGeocoder],
+  // Réutilisé par la génération d'itinéraire IA pour retrouver les lieux proposés.
+  exports: [PhotonGeocoder],
 })
 export class SearchModule {}

@@ -155,6 +155,31 @@ export class PhotonGeocoder {
     return { label, context: buildContext(parsed.data.properties, label), latitude, longitude };
   }
 
+  // Commune et région d'un point, sans rien de plus précis : c'est tout ce
+  // qu'on transmet au modèle d'IA pour situer un départ (C4). `undefined` si
+  // le point ne se rattache à aucune commune connue.
+  async reverseLocality(point: SearchOrigin): Promise<string | undefined> {
+    const url = new URL('/reverse', env.PHOTON_URL);
+    url.searchParams.set('lat', String(roundCoordinate(point.latitude)));
+    url.searchParams.set('lon', String(roundCoordinate(point.longitude)));
+    url.searchParams.set('lang', 'fr');
+
+    const payload = await this.fetchPayload(url);
+    const parsed = photonFeatureSchema.safeParse(payload.features[0]);
+    if (!parsed.success) {
+      return undefined;
+    }
+
+    const { city, name, street, state, country } = parsed.data.properties;
+    // Une commune a son nom dans `name` et pas de `city` ; tout lieu plus
+    // précis (rue, commerce) porte la commune dans `city`.
+    const locality = city ?? (street === undefined ? name : undefined);
+    if (locality === undefined) {
+      return undefined;
+    }
+    return [locality, state, country].filter((part) => part !== undefined && part.length > 0).join(', ');
+  }
+
   private async fetchPayload(url: URL): Promise<z.infer<typeof photonResponseSchema>> {
     let response: Response;
     try {

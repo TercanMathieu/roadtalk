@@ -1,3 +1,4 @@
+export * from './ai-route.contract';
 export * from './auth.contract';
 export * from './error-codes';
 export * from './ride.contract';

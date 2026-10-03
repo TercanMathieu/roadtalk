@@ -1,57 +1,178 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import type {
+  AddressSuggestionDto,
+  AiRouteDto,
+  GenerateAiRouteRequestDto,
+} from '@roadtalk/contracts';
+import { degrees } from '@roadtalk/domain-shared';
+import { Redirect, router } from 'expo-router';
 import type React from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
+import { useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { colors, MockBanner, Snackbar, spacing, Text, useSnackbar } from '../../ui';
+import { colors, Snackbar, spacing, Text, useSnackbar } from '../../ui';
+import { withFreshAccessToken } from '../auth/auth.store';
+import { RideTrackMap } from '../ride-summary/RideTrackMap';
+import { formatDistanceKm, formatDuration } from '../routing/format';
+import { saveRoute } from '../saved-routes/api';
+import { usePendingRouteLaunchStore } from '../saved-routes/pendingRouteLaunch.store';
+import { type ChosenPlaces, useAiRouteStore } from './aiRoute.store';
 import { styles } from './AiRoutePreviewScreen.styles';
 
-// Lancer un vrai guidage sur un trajet fictif serait dangereux — ce bouton
-// ne doit jamais démarrer de navigation réelle tant que la génération
-// elle-même n'existe pas.
-const GUIDANCE_UNAVAILABLE_MESSAGE = 'Exemple illustratif — aucun itinéraire réel à suivre.';
+const ROUTE_NAME_MAX_LENGTH = 120;
 
-const ELEVATION_CHART_HEIGHT = 72;
-const ELEVATION_BAR_MIN_HEIGHT = 6;
-
-// Exemple de sortie illustrative : la forme qu'aurait le résultat d'une
-// génération IA, aucune des valeurs ci-dessous ne provient d'un calcul réel
-// (voir MockBanner). Figé en constantes plutôt qu'en state, puisque rien ici
-// n'est modifiable par l'utilisateur.
-const SAMPLE = {
-  title: 'Balcons du Vercors',
-  subtitle: 'Boucle · départ Grenoble Sud',
-  durationLabel: '3 h 15',
-  distanceKm: 164,
-  elevationGainM: 1920,
-  highlights: ['Sans autoroute', '2 cols', 'Sans péage'],
-  elevationProfile: [24, 30, 42, 58, 70, 88, 100, 82, 60, 44, 36, 28, 24],
-};
-
-interface Waypoint {
-  readonly title: string;
-  readonly km: number;
-  readonly note: string;
+interface Step {
+  readonly label: string;
+  readonly detail: string | null;
 }
 
-const WAYPOINTS: readonly Waypoint[] = [
-  { title: 'Grenoble Sud', km: 0, note: 'Départ' },
-  { title: 'Gorges du Nan', km: 42, note: 'Route en corniche' },
-  { title: 'Col de Romeyère', km: 78, note: '1 069 m' },
-  { title: 'Pause café', km: 112, note: 'Halte suggérée' },
-  { title: 'Grenoble Sud', km: 164, note: 'Arrivée' },
-];
+// Dernier arrêt, quand il ne fait pas partie des lieux proposés : le départ
+// pour une boucle, l'arrivée imposée sinon.
+function finalStop(
+  route: AiRouteDto,
+  request: GenerateAiRouteRequestDto,
+  places: ChosenPlaces,
+): AddressSuggestionDto | undefined {
+  switch (route.ending) {
+    case 'start':
+      return { label: 'Retour au départ', context: null, ...request.origin };
+    case 'destination':
+      return request.destination === undefined
+        ? undefined
+        : {
+            label: places.destination?.label ?? 'Arrivée',
+            context: places.destination?.context ?? null,
+            ...request.destination,
+          };
+    case 'last-waypoint':
+      return undefined;
+  }
+}
 
-// Aucun moteur de génération d'itinéraire n'existe (voir
-// AiRouteGeneratorScreen) : cet écran montre à quoi ressemblerait un
-// résultat, avec des données entièrement fictives. Volontairement sans carte
-// ni photo : un tracé ou des images inventés seraient plus trompeurs
-// qu'utiles.
+function toSteps(
+  route: AiRouteDto,
+  request: GenerateAiRouteRequestDto,
+  places: ChosenPlaces,
+): readonly Step[] {
+  const final = finalStop(route, request, places);
+  return [
+    { label: places.start?.label ?? 'Ta position', detail: 'Départ' },
+    ...route.waypoints.map((waypoint) => ({
+      label: waypoint.label,
+      detail: waypoint.note.length > 0 ? waypoint.note : waypoint.context,
+    })),
+    ...(final !== undefined
+      ? [{ label: final.label, detail: route.ending === 'destination' ? 'Arrivée' : null }]
+      : []),
+  ];
+}
+
+// Arrêts tels que l'écran carte les attend : les lieux de la proposition,
+// puis le retour au départ ou l'arrivée imposée.
+function toStops(
+  route: AiRouteDto,
+  request: GenerateAiRouteRequestDto,
+  places: ChosenPlaces,
+): readonly AddressSuggestionDto[] {
+  const final = finalStop(route, request, places);
+  return [
+    ...route.waypoints.map(({ label, context, latitude, longitude }) => ({
+      label,
+      context,
+      latitude,
+      longitude,
+    })),
+    ...(final !== undefined ? [final] : []),
+  ];
+}
+
+function remainingLabel(remaining: number): string {
+  if (remaining === 0) {
+    return 'Dernière proposition du jour';
+  }
+  return remaining === 1
+    ? 'Encore 1 proposition possible aujourd’hui'
+    : `Encore ${String(remaining)} propositions possibles aujourd’hui`;
+}
+
 export function AiRoutePreviewScreen(): React.JSX.Element {
   const insets = useSafeAreaInsets();
   const snackbar = useSnackbar();
-  const maxElevation = Math.max(...SAMPLE.elevationProfile);
+  const route = useAiRouteStore((state) => state.route);
+  const request = useAiRouteStore((state) => state.request);
+  const places = useAiRouteStore((state) => state.places);
+  const isGenerating = useAiRouteStore((state) => state.isGenerating);
+  const generate = useAiRouteStore((state) => state.generate);
+  // La proposition enregistrée, et non un simple booléen : une nouvelle
+  // proposition n'est pas enregistrée, même si la précédente l'était.
+  const [savedRoute, setSavedRoute] = useState<AiRouteDto | undefined>(undefined);
+  const [isSaving, setIsSaving] = useState(false);
+
+  if (route === undefined || request === undefined) {
+    return <Redirect href="/ai-route-generator" />;
+  }
+
+  const isSaved = savedRoute === route;
+  const steps = toSteps(route, request, places);
+  const stops = toStops(route, request, places);
+  const path = route.geometry.path.map((point) => ({
+    latitude: degrees(point.latitude),
+    longitude: degrees(point.longitude),
+  }));
+
+  const handleLaunch = (): void => {
+    usePendingRouteLaunchStore.getState().setPending({
+      stops,
+      avoidHighways: route.avoidHighways,
+      // Départ choisi dans le formulaire : la carte le garde comme départ fixe,
+      // comme pour un itinéraire préparé depuis un autre point.
+      ...(places.start !== undefined ? { origin: places.start } : {}),
+      labelled: true,
+    });
+    router.dismissTo('/');
+  };
+
+  const handleSave = (): void => {
+    if (isSaved || isSaving) {
+      return;
+    }
+    setIsSaving(true);
+    withFreshAccessToken((accessToken) =>
+      saveRoute(accessToken, {
+        name: route.title.slice(0, ROUTE_NAME_MAX_LENGTH),
+        waypoints: [request.origin, ...stops].map(({ latitude, longitude }) => ({
+          latitude,
+          longitude,
+        })),
+        avoidHighways: route.avoidHighways,
+        fixedStart: places.start !== undefined,
+        distanceMeters: route.geometry.distanceMeters,
+        durationSeconds: route.geometry.durationSeconds,
+      }),
+    )
+      .then(() => {
+        setSavedRoute(route);
+        snackbar.show('Itinéraire enregistré dans tes balades');
+      })
+      .catch(() => {
+        snackbar.show('Enregistrement impossible. Réessaie.');
+      })
+      .finally(() => {
+        setIsSaving(false);
+      });
+  };
+
+  const handleRegenerate = (): void => {
+    if (isGenerating) {
+      return;
+    }
+    generate(request, places).catch((error: unknown) => {
+      if (error instanceof Error) {
+        snackbar.show(error.message);
+      }
+    });
+  };
 
   return (
     <View style={styles.container}>
@@ -63,72 +184,64 @@ export function AiRoutePreviewScreen(): React.JSX.Element {
           onPress={() => {
             router.back();
           }}
-          style={styles.backButton}
+          style={styles.headerButton}
         >
           <MaterialCommunityIcons name="chevron-left" size={28} color={colors.textPrimary} />
         </Pressable>
         <Text variant="title" style={styles.headerTitle}>
           Proposition
         </Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={isSaved ? 'Itinéraire enregistré' : 'Enregistrer l’itinéraire'}
+          accessibilityState={{ disabled: isSaved || isSaving, busy: isSaving }}
+          hitSlop={8}
+          onPress={handleSave}
+          style={styles.headerButton}
+        >
+          {isSaving ? (
+            <ActivityIndicator color={colors.textPrimary} />
+          ) : (
+            <MaterialCommunityIcons
+              name={isSaved ? 'bookmark' : 'bookmark-outline'}
+              size={24}
+              color={isSaved ? colors.accent : colors.textPrimary}
+            />
+          )}
+        </Pressable>
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
-        <MockBanner message="Exemple illustratif — aucun itinéraire n'a réellement été généré." />
-
         <View style={styles.summary}>
           <Text variant="title" style={styles.routeTitle}>
-            {SAMPLE.title}
+            {route.title}
           </Text>
-          <Text variant="body" color={colors.textSecondary}>
-            {SAMPLE.subtitle}
-          </Text>
+          {route.summary.length > 0 ? (
+            <Text variant="body" color={colors.textSecondary}>
+              {route.summary}
+            </Text>
+          ) : null}
           <View style={styles.summaryStats}>
             <Text variant="title" tabularNums style={styles.summaryDuration}>
-              {SAMPLE.durationLabel}
+              {formatDuration(route.geometry.durationSeconds)}
             </Text>
-            <Text variant="body" color={colors.textSecondary} tabularNums style={styles.summaryDetails}>
-              {`${String(SAMPLE.distanceKm)} km · +${SAMPLE.elevationGainM.toLocaleString('fr-FR')} m`}
+            <Text
+              variant="body"
+              color={colors.textSecondary}
+              tabularNums
+              style={styles.summaryDetails}
+            >
+              {formatDistanceKm(route.geometry.distanceMeters)}
             </Text>
           </View>
           <View style={styles.highlightsRow}>
-            {SAMPLE.highlights.map((highlight) => (
-              <View key={highlight} style={styles.highlightChip}>
-                <Text variant="caption" color={colors.textPrimary}>
-                  {highlight}
-                </Text>
-              </View>
-            ))}
+            <Highlight label={route.ending === 'start' ? 'Boucle' : 'Aller simple'} />
+            {route.avoidHighways ? <Highlight label="Sans autoroute" /> : null}
           </View>
         </View>
 
-        <View style={styles.section}>
-          <Text variant="label" color={colors.textSecondary} style={styles.sectionTitle}>
-            Profil
-          </Text>
-          <View style={styles.card}>
-            <View style={styles.elevationChart}>
-              {SAMPLE.elevationProfile.map((value, index) => (
-                <View
-                  key={index}
-                  style={[
-                    styles.elevationBar,
-                    value === maxElevation ? styles.elevationBarPeak : null,
-                    {
-                      height: Math.max(ELEVATION_BAR_MIN_HEIGHT, (value / maxElevation) * ELEVATION_CHART_HEIGHT),
-                    },
-                  ]}
-                />
-              ))}
-            </View>
-            <View style={styles.elevationAxis}>
-              <Text variant="caption" color={colors.textSecondary}>
-                0 km
-              </Text>
-              <Text variant="caption" color={colors.textSecondary}>
-                {`${String(SAMPLE.distanceKm)} km`}
-              </Text>
-            </View>
-          </View>
+        <View style={styles.mapCard}>
+          <RideTrackMap path={path} />
         </View>
 
         <View style={styles.section}>
@@ -136,25 +249,24 @@ export function AiRoutePreviewScreen(): React.JSX.Element {
             Étapes
           </Text>
           <View style={styles.card}>
-            {WAYPOINTS.map((waypoint, index) => {
-              const isLast = index === WAYPOINTS.length - 1;
+            {steps.map((step, index) => {
+              const isLast = index === steps.length - 1;
               return (
-                <View key={`${String(index)}-${waypoint.title}`} style={styles.waypointRow}>
+                <View key={`${String(index)}-${step.label}`} style={styles.waypointRow}>
                   <View style={styles.waypointRail}>
                     <View style={[styles.waypointDot, isLast ? styles.waypointDotEnd : null]} />
                     {!isLast ? <View style={styles.waypointConnector} /> : null}
                   </View>
                   <View style={[styles.waypointTexts, isLast ? styles.waypointTextsLast : null]}>
                     <Text variant="body" numberOfLines={1}>
-                      {waypoint.title}
+                      {step.label}
                     </Text>
-                    <Text variant="caption" color={colors.textSecondary}>
-                      {waypoint.note}
-                    </Text>
+                    {step.detail !== null ? (
+                      <Text variant="caption" color={colors.textSecondary} numberOfLines={2}>
+                        {step.detail}
+                      </Text>
+                    ) : null}
                   </View>
-                  <Text variant="caption" color={colors.textSecondary} tabularNums>
-                    {`${String(waypoint.km)} km`}
-                  </Text>
                 </View>
               );
             })}
@@ -163,24 +275,69 @@ export function AiRoutePreviewScreen(): React.JSX.Element {
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.sm }]}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Lancer le guidage"
-          onPress={() => {
-            snackbar.show(GUIDANCE_UNAVAILABLE_MESSAGE);
-          }}
-          style={({ pressed }) => [styles.launchButton, pressed ? styles.pressed : null]}
-        >
-          <Text variant="title" color={colors.onAccentLight} style={styles.launchButtonLabel}>
-            Lancer le guidage
-          </Text>
-          <MaterialCommunityIcons name="navigation-variant" size={20} color={colors.onAccentLight} />
-        </Pressable>
+        <Text variant="caption" color={colors.textSecondary} style={styles.footerHint}>
+          {isGenerating
+            ? 'Nouvelle proposition en cours, jusqu’à une minute.'
+            : remainingLabel(route.remainingToday)}
+        </Text>
+        <View style={styles.footerActions}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Autre proposition"
+            accessibilityState={{
+              disabled: isGenerating || route.remainingToday === 0,
+              busy: isGenerating,
+            }}
+            disabled={isGenerating || route.remainingToday === 0}
+            onPress={handleRegenerate}
+            style={({ pressed }) => [
+              styles.secondaryButton,
+              route.remainingToday === 0 ? styles.buttonDisabled : null,
+              pressed ? styles.pressed : null,
+            ]}
+          >
+            {isGenerating ? (
+              <ActivityIndicator color={colors.textPrimary} />
+            ) : (
+              <MaterialCommunityIcons name="refresh" size={22} color={colors.textPrimary} />
+            )}
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Lancer le guidage"
+            disabled={isGenerating}
+            onPress={handleLaunch}
+            style={({ pressed }) => [
+              styles.launchButton,
+              isGenerating ? styles.buttonDisabled : null,
+              pressed ? styles.pressed : null,
+            ]}
+          >
+            <Text variant="title" color={colors.onAccentLight} style={styles.launchButtonLabel}>
+              Lancer le guidage
+            </Text>
+            <MaterialCommunityIcons
+              name="navigation-variant"
+              size={20}
+              color={colors.onAccentLight}
+            />
+          </Pressable>
+        </View>
       </View>
 
-      <View style={[styles.snackbarWrapper, { bottom: insets.bottom + 80 }]}>
+      <View style={[styles.snackbarWrapper, { bottom: insets.bottom + 112 }]}>
         <Snackbar message={snackbar.message} />
       </View>
+    </View>
+  );
+}
+
+function Highlight({ label }: { readonly label: string }): React.JSX.Element {
+  return (
+    <View style={styles.highlightChip}>
+      <Text variant="caption" color={colors.textPrimary}>
+        {label}
+      </Text>
     </View>
   );
 }
