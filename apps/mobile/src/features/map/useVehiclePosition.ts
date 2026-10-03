@@ -11,6 +11,7 @@ import {
 } from '@roadtalk/domain-shared';
 import { useEffect, useState } from 'react';
 
+import { toEpochMs } from './epoch';
 import { useDeviceHeading } from './useDeviceHeading';
 
 // Règle physique du projet : le cap (course) n'est fiable qu'au-dessus
@@ -147,6 +148,6 @@ export function useVehiclePosition(): VehiclePosition | undefined {
     speedMps: speed !== null ? metersPerSecond(speed) : undefined,
     accuracyMeters: meters(position.coords.accuracy),
     altitudeMeters: position.coords.altitude !== null ? meters(position.coords.altitude) : undefined,
-    recordedAt: timestampMs(position.timestamp),
+    recordedAt: timestampMs(toEpochMs(position.timestamp)),
   };
 }

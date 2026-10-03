@@ -43,6 +43,10 @@ export type TrackPointDto = z.infer<typeof trackPointSchema>;
 // résumé (summarizeTrack) plutôt que de faire confiance à une valeur qu'il
 // n'a pas vérifiée.
 export const saveRideRequestSchema = z.object({
+  // Identifiant choisi par le client au démarrage de la balade : un envoi
+  // rejoué (réponse perdue, nouvel essai) ne crée pas de doublon. Absent, le
+  // serveur en choisit un.
+  id: z.string().uuid().optional(),
   name: z.string().trim().min(1).max(120),
   startedAt: z.number().int().nonnegative(),
   endedAt: z.number().int().nonnegative(),

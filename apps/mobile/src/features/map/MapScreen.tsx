@@ -14,7 +14,7 @@ import { useFocusEffect, useNavigation } from 'expo-router';
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { LayoutChangeEvent, NativeSyntheticEvent } from 'react-native';
-import { Keyboard, Pressable, TextInput, View } from 'react-native';
+import { Alert, Keyboard, Pressable, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useLastKnownPosition } from '../../lib/useLastKnownPosition';
@@ -26,6 +26,8 @@ import { type GuidanceStatus, ManeuverBanner } from '../guidance/ManeuverBanner'
 import { ManeuverMarker } from '../guidance/ManeuverMarker';
 import { OFF_ROUTE_THRESHOLD_METERS } from '../guidance/route-progress';
 import { useManeuverSteps, useRouteProgress } from '../guidance/useRouteProgress';
+import { stopBackgroundRecording } from '../ride-summary/background-recording';
+import { discardJournal, readJournal } from '../ride-summary/ride-journal';
 import { RideSummaryScreen } from '../ride-summary/RideSummaryScreen';
 import { type RideSummary, summarizeTrack } from '../ride-summary/summarize-track';
 import type { TrackPoint } from '../ride-summary/track-point';
@@ -67,6 +69,7 @@ const FLY_TO_DURATION_MS = 1200;
 // rend la distinction "pas encore arrivé" / "arrivé" peu fiable de toute
 // façon — pas d'intérêt à viser plus précis.
 const ARRIVAL_THRESHOLD_METERS = 20;
+const ALERT_DISMISS_DELAY_MS = 400;
 // Recalcul hors itinéraire — voir l'effet correspondant dans MapScreen.
 const REROUTE_DELAY_MS = 4000;
 const REROUTE_COOLDOWN_MS = 15000;
@@ -140,7 +143,8 @@ export function MapScreen(): React.JSX.Element {
   // AddressSearchBar.onPanelVisibleChange — pilote l'overlay de fermeture.
   const [isSearchPanelOpen, setIsSearchPanelOpen] = useState(false);
   const [rideSummary, setRideSummary] = useState<
-    { readonly summary: RideSummary; readonly points: readonly TrackPoint[] } | undefined
+    | { readonly rideId: string; readonly summary: RideSummary; readonly points: readonly TrackPoint[] }
+    | undefined
   >(undefined);
   // Hauteur réelle de ManeuverBanner (varie avec le texte de la manœuvre) :
   // positionne le badge de cap et les boutons flottants juste en dessous,
@@ -426,7 +430,7 @@ export function MapScreen(): React.JSX.Element {
     setIsFollowing(true);
     // Trajet frais : jamais de points d'une balade précédente mélangés au
     // résumé de celle qui démarre.
-    trackRecording.reset();
+    trackRecording.start();
 
     const origin = vehiclePosition ?? originRef.current;
     if (origin !== undefined) {
@@ -448,9 +452,15 @@ export function MapScreen(): React.JSX.Element {
 
     // Moins de 2 points : rien d'exploitable (sortie immédiate du guidage) —
     // pas de résumé plutôt qu'un écran de statistiques toutes à zéro.
-    const recordedPoints = trackRecording.getPoints();
-    if (recordedPoints.length >= 2) {
-      setRideSummary({ summary: summarizeTrack(recordedPoints), points: recordedPoints });
+    // Le journal est complété avant le résumé : il reste sur le disque
+    // jusqu'à la sauvegarde ou la fermeture du résumé, pour qu'un arrêt de
+    // l'app sur cet écran ne fasse pas perdre la balade.
+    const recordedPoints = trackRecording.stop();
+    const recordedRideId = trackRecording.getRideId();
+    if (recordedPoints.length >= 2 && recordedRideId !== undefined) {
+      setRideSummary({ rideId: recordedRideId, summary: summarizeTrack(recordedPoints), points: recordedPoints });
+    } else {
+      discardJournal();
     }
 
     const origin = vehiclePosition ?? originRef.current;
@@ -476,6 +486,53 @@ export function MapScreen(): React.JSX.Element {
       handleExit();
     }
   }, [isNavigating, progress]);
+
+  // Balade interrompue : si l'app a été tuée pendant un guidage, son journal
+  // est resté sur le disque. Une seule fois au démarrage, on propose d'en
+  // voir le résumé (pour la sauvegarder) ou de la supprimer.
+  useEffect(() => {
+    // Aucun guidage ne peut être en cours à l'ouverture de l'app : une tâche
+    // d'arrière-plan encore active est celle de la balade interrompue, que
+    // le système aurait relancée. On l'arrête avant de lire le journal.
+    stopBackgroundRecording().catch(() => undefined);
+    const recovered = readJournal();
+    if (recovered === undefined) {
+      return;
+    }
+    if (recovered.points.length < 2) {
+      discardJournal();
+      return;
+    }
+
+    const startedOn = new Date(recovered.header.startedAt).toLocaleString('fr-FR', {
+      day: 'numeric',
+      month: 'long',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+    Alert.alert(
+      'Balade interrompue',
+      `L'app s'est fermée pendant ta balade du ${startedOn}. Son tracé a été retrouvé.`,
+      [
+        { text: 'Plus tard', style: 'cancel' },
+        { text: 'Supprimer', style: 'destructive', onPress: discardJournal },
+        {
+          text: 'Voir le résumé',
+          onPress: () => {
+            // Différé : sur iOS, un écran modal présenté pendant que l'alerte
+            // se ferme encore est ignoré sans erreur.
+            setTimeout(() => {
+              setRideSummary({
+                rideId: recovered.header.rideId,
+                summary: summarizeTrack(recovered.points),
+                points: recovered.points,
+              });
+            }, ALERT_DISMISS_DELAY_MS);
+          },
+        },
+      ],
+    );
+  }, []);
 
   // L'utilisateur reprend la main sur la caméra : on lâche le suivi, sinon le
   // prochain point GPS ramènerait la vue et rendrait la carte impossible à
@@ -763,9 +820,14 @@ export function MapScreen(): React.JSX.Element {
 
       {rideSummary !== undefined ? (
         <RideSummaryScreen
+          rideId={rideSummary.rideId}
           summary={rideSummary.summary}
           points={rideSummary.points}
+          onSaved={discardJournal}
           onClose={() => {
+            // Fermer le résumé sans sauvegarder est un choix : la balade
+            // n'est plus proposée à la récupération.
+            discardJournal();
             setRideSummary(undefined);
           }}
         />

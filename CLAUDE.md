@@ -327,8 +327,14 @@ elle est réglée. Rien de tout ceci n'est déployé aujourd'hui.
   avant que les fiches soient visibles par d'autres (amis, V2).
 - **Limitation de débit** sur l'API : absente aujourd'hui (authentification,
   recherche d'adresses, suggestion de pseudo).
-- **Robustesse du guidage** : tracé GPS gardé en mémoire seulement (perdu si l'app
-  est tuée), pas de localisation en arrière-plan, pas de guidage vocal.
+- **Enregistrement des balades** : le tracé est écrit sur le disque (`ride-journal.ts`)
+  et proposé à la récupération si l'app est tuée ; une tâche de localisation
+  (`background-recording.ts`) continue l'enregistrement écran verrouillé. Pour les
+  stores : justifier la permission « toujours » (texte `locationAlwaysAndWhenInUse…`
+  dans `app.json`, fiche de l'app, politique de confidentialité — C4), ajouter
+  `expo-task-manager` aux builds natifs, et tester sur un vrai appareil la
+  consommation de batterie (C1) et le service de premier plan Android — seul iOS en
+  simulateur a été vérifié. Pas de guidage vocal.
 - **Écrans encore en maquette** à retirer ou terminer : génération d'itinéraire par
   IA, import GPX, cartes hors-ligne, zones de danger.
 

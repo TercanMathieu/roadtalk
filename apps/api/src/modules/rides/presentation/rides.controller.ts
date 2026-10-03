@@ -86,6 +86,7 @@ export class RidesController {
     @Body(new ZodValidationPipe(saveRideRequestSchema)) body: SaveRideRequestDto,
   ): Promise<RideDetailDto> {
     const result = await this.rides.saveCompleted({
+      ...(body.id !== undefined ? { id: toRideId(body.id) } : {}),
       ownerId,
       name: body.name,
       startedAt: timestampMs(body.startedAt),

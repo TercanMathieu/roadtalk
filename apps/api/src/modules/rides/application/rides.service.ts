@@ -7,6 +7,8 @@ import type { TrackPoint } from '../domain/track-point';
 import { RIDE_REPOSITORY, type RideListEntry, type RideRecord, type RideRepository } from './ride-repository.port';
 
 export interface SaveCompletedRideInput {
+  // Fourni par le client pour rendre l'envoi rejouable ; sinon tiré ici.
+  readonly id?: RideId;
   readonly ownerId: UserId;
   readonly name: string;
   readonly startedAt: TimestampMs;
@@ -25,7 +27,17 @@ export class RidesService {
   constructor(@Inject(RIDE_REPOSITORY) private readonly rides: RideRepository) {}
 
   async saveCompleted(input: SaveCompletedRideInput): Promise<Result<RideRecord, RideTransitionError>> {
-    const planned = planRide({ id: createRideId(), ownerId: input.ownerId });
+    // Même balade déjà enregistrée par un envoi précédent dont le client n'a
+    // pas reçu la réponse : on renvoie l'existante plutôt que d'échouer ou
+    // d'en créer une seconde.
+    if (input.id !== undefined) {
+      const existing = await this.rides.findByIdForOwner(input.id, input.ownerId);
+      if (existing !== undefined) {
+        return ok(existing);
+      }
+    }
+
+    const planned = planRide({ id: input.id ?? createRideId(), ownerId: input.ownerId });
     const started = startRide(planned, input.startedAt);
     if (!started.ok) {
       return started;

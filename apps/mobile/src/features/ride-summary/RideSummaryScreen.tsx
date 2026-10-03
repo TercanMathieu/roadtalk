@@ -28,8 +28,13 @@ const RIDE_SAVED_MESSAGE = 'Balade sauvegardée dans l’historique.';
 const RIDE_SAVE_FAILED_MESSAGE = 'La sauvegarde a échoué.';
 
 interface Props {
+  // Identifiant de la balade, envoyé au serveur avec le tracé : sauvegarder
+  // deux fois la même balade (réponse perdue, nouvel essai) n'en crée qu'une.
+  readonly rideId: string;
   readonly summary: RideSummary;
   readonly points: readonly TrackPoint[];
+  // Appelé une fois la balade enregistrée sur le serveur.
+  readonly onSaved: () => void;
   readonly onClose: () => void;
 }
 
@@ -40,7 +45,7 @@ function defaultRideName(startedAt: number): string {
 // Modal toujours monté avec `visible` à vrai : affiché/masqué en montant ou
 // démontant ce composant depuis MapScreen, pas de prop `visible` séparée
 // (pas besoin de garder le dernier résumé en mémoire une fois fermé).
-export function RideSummaryScreen({ summary, points, onClose }: Props): React.JSX.Element {
+export function RideSummaryScreen({ rideId, summary, points, onSaved, onClose }: Props): React.JSX.Element {
   const insets = useSafeAreaInsets();
   const snackbar = useSnackbar();
   const first = points[0];
@@ -69,6 +74,7 @@ export function RideSummaryScreen({ summary, points, onClose }: Props): React.JS
     setIsSaving(true);
     withFreshAccessToken((accessToken) =>
       saveRide(accessToken, {
+        id: rideId,
         name: rideName,
         startedAt: first.recordedAt,
         endedAt: last.recordedAt,
@@ -76,6 +82,7 @@ export function RideSummaryScreen({ summary, points, onClose }: Props): React.JS
       }),
     )
       .then(() => {
+        onSaved();
         setIsSaved(true);
         snackbar.show(RIDE_SAVED_MESSAGE);
       })
