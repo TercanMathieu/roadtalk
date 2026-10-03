@@ -1,13 +1,14 @@
 import { execSync } from 'node:child_process';
 import path from 'node:path';
 
-import { ErrorCode } from '@roadtalk/contracts';
+import { ErrorCode, type UserDto } from '@roadtalk/contracts';
 import { createUserId, toUserId } from '@roadtalk/domain-shared';
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testcontainers/postgresql';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { PrismaService } from '../../../src/infrastructure/database/prisma.service';
 import { type AppErrorBody,AppException } from '../../../src/infrastructure/errors/app-exception';
+import { UsernameModerationService } from '../../../src/modules/users/username-moderation.service';
 import { UsersService } from '../../../src/modules/users/users.service';
 
 const apiRoot = path.resolve(__dirname, '../../..');
@@ -134,62 +135,146 @@ describe('UsersService (intégration, vraie Postgres via Testcontainers)', () =>
     await expectErrorCode(service.delete(toUserId(created.id)), ErrorCode.USER_NOT_FOUND);
   });
 
-  it('setUsername attribue un pseudo à un user qui n\'en a pas', async () => {
-    const created = await service.findOrCreateFromOAuth({
+  async function createUserForHandle(suffix: string): Promise<UserDto> {
+    return service.findOrCreateFromOAuth({
       provider: 'apple',
-      providerUserId: 'apple-username-1',
-      email: 'username-1@roadtalk.app',
+      providerUserId: `apple-handle-${suffix}`,
+      email: `handle-${suffix}@roadtalk.app`,
       firstName: 'A',
       lastName: 'Pseudo',
     });
+  }
+
+  it("setHandle attribue un identifiant à un user qui n'en a pas, casse conservée", async () => {
+    const created = await createUserForHandle('first');
     expect(created.username).toBeNull();
+    expect(created.tag).toBeNull();
 
-    const updated = await service.setUsername(toUserId(created.id), 'motard_1');
+    const updated = await service.setHandle(toUserId(created.id), 'Motard_1', 'BCDF');
 
-    expect(updated.username).toBe('motard_1');
+    expect(updated.username).toBe('Motard_1');
+    expect(updated.tag).toBe('BCDF');
+    // Le premier choix ne lance pas le délai de 3 mois.
+    expect(updated.usernameChangeAllowedAt).toBeNull();
   });
 
-  it('setUsername permet de changer un pseudo déjà choisi', async () => {
-    const created = await service.findOrCreateFromOAuth({
-      provider: 'apple',
-      providerUserId: 'apple-username-2',
-      email: 'username-2@roadtalk.app',
-      firstName: 'B',
-      lastName: 'Pseudo',
-    });
-    await service.setUsername(toUserId(created.id), 'ancien_pseudo');
+  it('setHandle accepte le même pseudo pour deux users si le tag diffère', async () => {
+    const first = await createUserForHandle('same-name-1');
+    const second = await createUserForHandle('same-name-2');
 
-    const updated = await service.setUsername(toUserId(created.id), 'nouveau_pseudo');
+    await service.setHandle(toUserId(first.id), 'Jumeau', 'BCDF');
+    const updated = await service.setHandle(toUserId(second.id), 'Jumeau', 'GHJK');
 
-    expect(updated.username).toBe('nouveau_pseudo');
+    expect(updated.username).toBe('Jumeau');
+    expect(updated.tag).toBe('GHJK');
   });
 
-  it('setUsername lève USERNAME_ALREADY_TAKEN si le pseudo est déjà pris', async () => {
-    const first = await service.findOrCreateFromOAuth({
-      provider: 'apple',
-      providerUserId: 'apple-username-3',
-      email: 'username-3@roadtalk.app',
-      firstName: 'C',
-      lastName: 'Pseudo',
-    });
-    await service.setUsername(toUserId(first.id), 'pseudo_pris');
-
-    const second = await service.findOrCreateFromOAuth({
-      provider: 'google',
-      providerUserId: 'google-username-3',
-      email: 'username-3b@roadtalk.app',
-      firstName: 'D',
-      lastName: 'Pseudo',
-    });
+  it('setHandle lève USERNAME_ALREADY_TAKEN si la paire est prise, sans tenir compte de la casse', async () => {
+    const first = await createUserForHandle('taken-1');
+    const second = await createUserForHandle('taken-2');
+    await service.setHandle(toUserId(first.id), 'PseudoPris', 'BCDF');
 
     await expectErrorCode(
-      service.setUsername(toUserId(second.id), 'pseudo_pris'),
+      service.setHandle(toUserId(second.id), 'pseudopris', 'BCDF'),
       ErrorCode.USERNAME_ALREADY_TAKEN,
     );
   });
 
-  it('setUsername lève USER_NOT_FOUND pour un id inexistant', async () => {
-    await expectErrorCode(service.setUsername(createUserId(), 'x_y_z'), ErrorCode.USER_NOT_FOUND);
+  it('setHandle lève USERNAME_NOT_ALLOWED pour un pseudo refusé par le filtre', async () => {
+    const created = await createUserForHandle('filtered');
+
+    await expectErrorCode(
+      service.setHandle(toUserId(created.id), 'c0nnard', 'BCDF'),
+      ErrorCode.USERNAME_NOT_ALLOWED,
+    );
+  });
+
+  it('setHandle autorise un premier changement, puis refuse le suivant avant 3 mois', async () => {
+    const created = await createUserForHandle('cooldown');
+    const id = toUserId(created.id);
+    await service.setHandle(id, 'Premier', 'BCDF');
+
+    const changed = await service.setHandle(id, 'Deuxieme', 'BCDF');
+    expect(changed.username).toBe('Deuxieme');
+    expect(changed.usernameChangeAllowedAt).toBeGreaterThan(Date.now());
+
+    await expectErrorCode(service.setHandle(id, 'Troisieme', 'BCDF'), ErrorCode.USERNAME_CHANGE_TOO_SOON);
+  });
+
+  it('setHandle lève USER_NOT_FOUND pour un id inexistant', async () => {
+    await expectErrorCode(service.setHandle(createUserId(), 'x_y_z', 'BCDF'), ErrorCode.USER_NOT_FOUND);
+  });
+
+  it('suggestHandle propose un tag libre, différent de ceux déjà pris pour ce pseudo', async () => {
+    const created = await createUserForHandle('suggest');
+    await service.setHandle(toUserId(created.id), 'Populaire', 'BCDF');
+
+    const suggestion = await service.suggestHandle('populaire');
+
+    expect(suggestion.username).toBe('populaire');
+    expect(suggestion.tag).toMatch(/^[BCDFGHJKLMNPQRSTVWXZ]{4}$/);
+    expect(suggestion.tag).not.toBe('BCDF');
+  });
+
+  it('suggestHandle lève USERNAME_NOT_ALLOWED pour un pseudo refusé par le filtre', async () => {
+    await expectErrorCode(service.suggestHandle('salope'), ErrorCode.USERNAME_NOT_ALLOWED);
+  });
+
+  describe('modération', () => {
+    it('rejectHandle retire l\'identifiant, lève le délai et bloque le pseudo', async () => {
+      const moderation = new UsernameModerationService(prisma);
+      const created = await createUserForHandle('moderation-reject');
+      const id = toUserId(created.id);
+      await service.setHandle(id, 'Douteux', 'BCDF');
+      await service.setHandle(id, 'Douteux2', 'BCDF');
+
+      expect(await moderation.rejectHandle('douteux2', 'bcdf')).toBe(true);
+
+      const afterReject = await service.getById(id);
+      expect(afterReject.username).toBeNull();
+      expect(afterReject.tag).toBeNull();
+      expect(afterReject.usernameRejectedAt).not.toBeNull();
+      // Le délai de 3 mois ne doit pas empêcher de choisir un autre pseudo.
+      expect(afterReject.usernameChangeAllowedAt).toBeNull();
+
+      await expectErrorCode(service.setHandle(id, 'Douteux2', 'GHJK'), ErrorCode.USERNAME_NOT_ALLOWED);
+
+      const renamed = await service.setHandle(id, 'Correct', 'GHJK');
+      expect(renamed.username).toBe('Correct');
+      expect(renamed.usernameRejectedAt).toBeNull();
+    });
+
+    it("rejectHandle renvoie false pour un identifiant qu'aucun compte ne porte", async () => {
+      const moderation = new UsernameModerationService(prisma);
+
+      expect(await moderation.rejectHandle('Personne', 'BCDF')).toBe(false);
+    });
+
+    it('un terme bloqué s\'applique immédiatement, et se débloque', async () => {
+      const moderation = new UsernameModerationService(prisma);
+      const created = await createUserForHandle('moderation-block');
+
+      await moderation.blockTerm('Bouffon', 'contains');
+      await expectErrorCode(service.suggestHandle('gros_bouffon'), ErrorCode.USERNAME_NOT_ALLOWED);
+      await expectErrorCode(
+        service.setHandle(toUserId(created.id), 'b0uffon', 'BCDF'),
+        ErrorCode.USERNAME_NOT_ALLOWED,
+      );
+
+      expect(await moderation.unblockTerm('bouffon')).toBe(true);
+      const suggestion = await service.suggestHandle('gros_bouffon');
+      expect(suggestion.username).toBe('gros_bouffon');
+    });
+
+    it('listRecentHandles liste les pseudos choisis récemment', async () => {
+      const moderation = new UsernameModerationService(prisma);
+      const created = await createUserForHandle('moderation-recent');
+      await service.setHandle(toUserId(created.id), 'Nouveau_Venu', 'BCDF');
+
+      const recent = await moderation.listRecentHandles(7);
+
+      expect(recent.map((entry) => entry.handle)).toContain('Nouveau_Venu#BCDF');
+    });
   });
 
   it('refuse deux identités OAuth différentes avec le même email (contrainte unique)', async () => {

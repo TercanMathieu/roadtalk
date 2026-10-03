@@ -11,7 +11,8 @@
     "test": "vitest run",
     "postinstall": "prisma generate",
     "db:generate": "prisma generate",
-    "db:migrate": "prisma migrate dev"
+    "db:migrate": "prisma migrate dev",
+    "moderation": "node -r ts-node/register/transpile-only scripts/moderation.ts"
   },
   "dependencies": {
     "@nestjs/common": "10.4.15",

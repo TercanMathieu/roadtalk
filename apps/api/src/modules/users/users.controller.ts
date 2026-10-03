@@ -1,5 +1,8 @@
-import { Body, Controller, Delete, Get, HttpCode, Patch, UseGuards, UseInterceptors } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Patch, Query, UseGuards, UseInterceptors } from '@nestjs/common';
 import {
+  type HandleSuggestionDto,
+  handleSuggestionQuerySchema,
+  handleSuggestionSchema,
   type SetUsernameDto,
   setUsernameSchema,
   type UpdateUserDto,
@@ -44,7 +47,17 @@ export class UsersController {
     @CurrentUserId() userId: UserId,
     @Body(new ZodValidationPipe(setUsernameSchema)) body: SetUsernameDto,
   ): Promise<UserDto> {
-    return this.usersService.setUsername(userId, body.username);
+    return this.usersService.setHandle(userId, body.username, body.tag);
+  }
+
+  // Sous /users/me : seul un utilisateur connecté remplit sa fiche, et la
+  // route ne sert à rien d'autre (pas de recherche d'utilisateurs en V1).
+  @Get('me/handle-suggestion')
+  @UseInterceptors(new ZodResponseInterceptor(handleSuggestionSchema))
+  async suggestHandle(
+    @Query(new ZodValidationPipe(handleSuggestionQuerySchema)) query: { username: string },
+  ): Promise<HandleSuggestionDto> {
+    return this.usersService.suggestHandle(query.username);
   }
 
   @Delete('me')
