@@ -48,7 +48,20 @@ export function useLastKnownPosition(enabled: boolean): LastKnownPositionResult 
 
     LocationManager.addListener(handleUpdate);
 
+    // À l'arrêt, le flux continu peut ne livrer aucun point avant longtemps
+    // (aucun déplacement à signaler). Même repli que useVehiclePosition : la
+    // dernière position connue du système, en cache, sans réveiller le GPS (C1).
+    let cancelled = false;
+    LocationManager.getCurrentPosition()
+      .then((position) => {
+        if (!cancelled && position !== undefined && positionRef.current === undefined) {
+          handleUpdate(position);
+        }
+      })
+      .catch(() => undefined);
+
     return () => {
+      cancelled = true;
       LocationManager.removeListener(handleUpdate);
     };
   }, [enabled]);
