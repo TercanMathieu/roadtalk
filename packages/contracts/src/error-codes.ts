@@ -26,6 +26,18 @@ export const ErrorCode = {
   // Arrivée imposée hors d'atteinte dans la durée demandée, même en ligne
   // droite : refusé avant tout appel au modèle.
   AI_ROUTE_DESTINATION_TOO_FAR: 'AI_ROUTE_DESTINATION_TOO_FAR',
+  // Amis. Aucun motard avec cet identifiant — ou un motard qui a bloqué
+  // l'appelant : volontairement indiscernable.
+  FRIEND_HANDLE_NOT_FOUND: 'FRIEND_HANDLE_NOT_FOUND',
+  // Demande impossible : son propre identifiant, un motard qu'on a bloqué,
+  // ou pas encore d'identifiant à soi.
+  FRIEND_REQUEST_INVALID: 'FRIEND_REQUEST_INVALID',
+  // Déjà amis, ou une demande est déjà en cours entre les deux.
+  FRIEND_ALREADY_CONNECTED: 'FRIEND_ALREADY_CONNECTED',
+  // Trop de demandes envoyées sur 24 h.
+  FRIEND_REQUEST_LIMIT: 'FRIEND_REQUEST_LIMIT',
+  // Demande, ami ou blocage introuvable pour l'appelant.
+  FRIEND_REQUEST_NOT_FOUND: 'FRIEND_REQUEST_NOT_FOUND',
   // Aucun chemin routier entre deux points (moteur de routage) — distinct de
   // SAVED_ROUTE_NOT_FOUND ci-dessous (un itinéraire sauvegardé introuvable).
   ROUTE_NOT_FOUND: 'ROUTE_NOT_FOUND',

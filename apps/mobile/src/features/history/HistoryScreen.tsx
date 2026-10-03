@@ -36,7 +36,7 @@ const EMPTY_MESSAGES: Record<Tab, string> = {
   history: 'Aucune balade pour l’instant. Lance un guidage : ta balade s’enregistre ici.',
   saved: 'Aucun itinéraire enregistré. Prépare-en un sur la carte ou avec l’IA, puis enregistre-le.',
   favorites: 'Aucun favori pour l’instant. Touche l’étoile d’une balade pour la retrouver ici.',
-  // Le système d'amis n'existe pas encore (V2) : onglet honnêtement vide.
+  // L'envoi de balades entre amis n'existe pas encore : onglet vide.
   friends: 'Bientôt : les balades que tes amis t’enverront arriveront ici.',
 };
 
@@ -205,6 +205,20 @@ export function HistoryScreen(): React.JSX.Element {
               ? EMPTY_MESSAGES.friends
               : (error ?? (isLoading ? 'Chargement…' : EMPTY_MESSAGES[tab]))}
           </Text>
+          {tab === 'friends' ? (
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => {
+                router.push('/friends');
+              }}
+              style={({ pressed }) => [styles.friendsButton, pressed ? styles.pressed : null]}
+            >
+              <MaterialCommunityIcons name="account-multiple-outline" size={16} color={colors.textPrimary} />
+              <Text variant="captionStrong" color={colors.textPrimary}>
+                Gérer mes amis
+              </Text>
+            </Pressable>
+          ) : null}
         </View>
       ) : (
         <FlatList

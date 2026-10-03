@@ -3,6 +3,7 @@ import { Module } from '@nestjs/common';
 import { HealthController } from './health/health.controller';
 import { AiRoutesModule } from './modules/ai-routes/ai-routes.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { FriendsModule } from './modules/friends/friends.module';
 import { RidesModule } from './modules/rides/rides.module';
 import { RoutesModule } from './modules/routes/routes.module';
 import { RoutingModule } from './modules/routing/routing.module';
@@ -14,6 +15,7 @@ import { UsersModule } from './modules/users/users.module';
   imports: [
     AiRoutesModule,
     AuthModule,
+    FriendsModule,
     RidesModule,
     RoutesModule,
     RoutingModule,

@@ -62,6 +62,16 @@ export const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: spacing.xs,
   },
+  friendsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: spacing.md,
+    paddingHorizontal: spacing.md,
+    minHeight: 40,
+    borderRadius: 9999,
+    backgroundColor: colors.surfaceChip,
+  },
   pressed: {
     opacity: 0.85,
   },
