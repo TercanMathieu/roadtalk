@@ -2,7 +2,7 @@ import type { RideListItemDto } from '@roadtalk/contracts';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { withFreshAccessToken } from '../auth/auth.store';
-import { deleteRide, listRides, setRideFavorite } from './api';
+import { deleteRide, listRides, renameRide as renameRideRequest, setRideFavorite } from './api';
 
 interface RideHistory {
   readonly rides: readonly RideListItemDto[];
@@ -15,6 +15,8 @@ interface RideHistory {
   readonly removeRide: (id: string) => void;
   // Même logique optimiste que removeRide.
   readonly toggleFavorite: (id: string) => void;
+  // Même logique optimiste. `name` déjà nettoyé et non vide (voir l'appelant).
+  readonly renameRide: (id: string, name: string) => void;
 }
 
 export function useRideHistory(): RideHistory {
@@ -76,5 +78,15 @@ export function useRideHistory(): RideHistory {
     });
   }, [rides]);
 
-  return { rides, isLoading, error, refresh, removeRide, toggleFavorite };
+  const renameRide = useCallback((id: string, name: string): void => {
+    const previous = rides;
+    setRides((current) => current.map((ride) => (ride.id === id ? { ...ride, name } : ride)));
+
+    withFreshAccessToken((accessToken) => renameRideRequest(accessToken, id, name)).catch(() => {
+      setRides(previous);
+      setError('Renommage impossible.');
+    });
+  }, [rides]);
+
+  return { rides, isLoading, error, refresh, removeRide, toggleFavorite, renameRide };
 }

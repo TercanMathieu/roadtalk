@@ -8,10 +8,10 @@ export const styles = StyleSheet.create({
     left: spacing.md,
     right: spacing.md,
     bottom: spacing.lg,
-    borderRadius: 12,
-    backgroundColor: colors.background,
-    padding: spacing.sm,
-    gap: spacing.sm,
+    borderRadius: 20,
+    backgroundColor: colors.surface,
+    padding: spacing.md,
+    gap: 12,
     shadowColor: '#000',
     shadowOpacity: 0.25,
     shadowRadius: 10,
@@ -22,8 +22,8 @@ export const styles = StyleSheet.create({
   // trait visible lui-même pour rester facile à attraper.
   gripHandle: {
     alignItems: 'center',
-    marginTop: -spacing.xs,
-    marginHorizontal: -spacing.sm,
+    marginTop: -spacing.sm,
+    marginHorizontal: -spacing.md,
     paddingVertical: spacing.xs,
   },
   grip: {
@@ -54,38 +54,37 @@ export const styles = StyleSheet.create({
   },
   collapsedLabel: {
     flex: 1,
-    fontSize: 12,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  headerTitle: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  headerTitleText: {
     fontSize: 15,
   },
-  jalonsBadge: {
-    paddingHorizontal: spacing.xs,
-    paddingVertical: 2,
-    borderRadius: 4,
-    backgroundColor: colors.surfaceRaised,
+  summary: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: spacing.sm,
   },
+  summaryDuration: {
+    fontSize: 26,
+    fontWeight: '700',
+    letterSpacing: -0.5,
+  },
+  summaryDetails: {
+    flex: 1,
+    fontSize: 15,
+  },
+  // Lignes sans fond ni bordure : la liste se lit comme un trajet, pas
+  // comme un empilement de cartes. ROW_PITCH (ReorderableStepRow) dépend de
+  // minHeight + gap — à ajuster ensemble.
   stepsList: {
-    gap: spacing.xs,
+    gap: 0,
+    paddingVertical: spacing.xs,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
   },
   stepRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
+    gap: 12,
     minHeight: 48,
-    padding: spacing.sm,
-    borderRadius: 8,
-    backgroundColor: colors.surfaceRow,
   },
   stepBadge: {
     width: 28,
@@ -96,7 +95,7 @@ export const styles = StyleSheet.create({
     backgroundColor: colors.surfaceMuted,
   },
   originBadge: {
-    backgroundColor: colors.surfaceRaised,
+    backgroundColor: colors.surfaceChip,
   },
   terminusBadge: {
     backgroundColor: colors.accent,
@@ -109,7 +108,7 @@ export const styles = StyleSheet.create({
     fontSize: 11,
   },
   stepAddress: {
-    fontSize: 14,
+    fontSize: 15,
   },
   closeButton: {
     minWidth: 36,
@@ -120,31 +119,18 @@ export const styles = StyleSheet.create({
   addStopButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
+    gap: 12,
     minHeight: MIN_TOUCH_TARGET_DP,
-    borderRadius: 8,
-    backgroundColor: colors.surfaceRaised,
+  },
+  addStopIcon: {
+    width: 28,
+    alignItems: 'center',
   },
   addStopButtonPressed: {
     opacity: 0.85,
   },
   message: {
     textAlign: 'center',
-  },
-  stats: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingTop: spacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  stat: {
-    alignItems: 'center',
-    gap: 1,
-  },
-  statValue: {
-    fontSize: 16,
   },
   actionsRow: {
     flexDirection: 'row',
@@ -156,14 +142,9 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.sm,
-    minHeight: 44,
-    borderRadius: 10,
+    minHeight: 52,
+    borderRadius: 14,
     backgroundColor: colors.accent,
-    shadowColor: '#000',
-    shadowOpacity: 0.12,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 4,
   },
   startButtonDisabled: {
     opacity: 0.4,
@@ -172,20 +153,14 @@ export const styles = StyleSheet.create({
     opacity: 0.85,
   },
   startButtonLabel: {
-    fontSize: 14,
-    textTransform: 'uppercase',
+    fontSize: 17,
   },
   saveRouteButton: {
-    flexDirection: 'row',
+    width: 52,
+    minHeight: 52,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: spacing.xs,
-    minHeight: 44,
-    paddingHorizontal: spacing.sm,
-    borderRadius: 10,
-    backgroundColor: colors.surfaceRaised,
-  },
-  saveRouteButtonLabel: {
-    fontSize: 12,
+    borderRadius: 14,
+    backgroundColor: colors.surfaceChip,
   },
 });

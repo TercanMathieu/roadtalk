@@ -2,220 +2,122 @@ import { StyleSheet } from 'react-native';
 
 import { colors, MIN_TOUCH_TARGET_DP, spacing } from '../../ui';
 
+const WAYPOINT_DOT_SIZE = 10;
+
 export const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
   },
-  content: {
-    gap: spacing.md,
-    padding: spacing.md,
-    paddingBottom: spacing.xl,
-  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
+    gap: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    paddingBottom: spacing.sm,
   },
   backButton: {
-    width: 40,
-    height: 40,
+    width: MIN_TOUCH_TARGET_DP,
+    height: MIN_TOUCH_TARGET_DP,
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: -spacing.sm,
   },
-  iaBadge: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: 9999,
-    backgroundColor: colors.surfaceChip,
-    alignSelf: 'flex-start',
-  },
-  iaBadgeDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: colors.accent,
-  },
-  // Pas de vraie carte ni de photo (voir commentaire du composant) : panneau
-  // neutre qui reprend la même composition que le Figma sans prétendre
-  // montrer un lieu réel.
-  previewPanel: {
-    borderRadius: 12,
-    overflow: 'hidden',
-    backgroundColor: colors.surfaceRow,
-    padding: spacing.md,
-  },
-  previewPanelTag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  previewPanelTagTexts: {
-    flex: 1,
-    gap: 2,
-  },
-  previewPanelTitle: {
-    fontWeight: '700',
-  },
-  previewPanelSurface: {
-    alignItems: 'flex-end',
-  },
-  previewPanelSurfaceValue: {
-    fontSize: 18,
-  },
-  titleSection: {
-    gap: spacing.sm,
-  },
-  titleTagRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  recommendedTag: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    borderRadius: 4,
-    backgroundColor: colors.accent,
-  },
-  routeTitle: {
+  headerTitle: {
     fontSize: 22,
   },
-  metricsGrid: {
+  content: {
+    gap: spacing.lg,
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.lg,
+  },
+  summary: {
+    gap: spacing.xs,
+    paddingHorizontal: spacing.xs,
+  },
+  routeTitle: {
+    fontSize: 26,
+    fontWeight: '700',
+    letterSpacing: -0.4,
+  },
+  summaryStats: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  summaryDuration: {
+    fontSize: 26,
+    fontWeight: '700',
+    letterSpacing: -0.5,
+  },
+  summaryDetails: {
+    fontSize: 15,
+  },
+  highlightsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.sm,
+    marginTop: spacing.sm,
   },
-  metricTile: {
-    flexBasis: '47%',
-    flexGrow: 1,
+  highlightChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 9999,
+    backgroundColor: colors.surfaceChip,
+  },
+  section: {
     gap: spacing.sm,
-    padding: spacing.md,
-    borderRadius: 12,
-    backgroundColor: colors.surfaceRaised,
   },
-  metricTileHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  metricLabel: {
-    textTransform: 'uppercase',
-  },
-  metricValueRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: spacing.xs,
-  },
-  metricValue: {
-    fontSize: 24,
-  },
-  starsRow: {
-    flexDirection: 'row',
-    gap: 2,
+  sectionTitle: {
+    paddingHorizontal: spacing.xs,
   },
   card: {
-    gap: spacing.md,
     padding: spacing.md,
-    borderRadius: 12,
-    backgroundColor: colors.surfaceRow,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  cardHeaderTitle: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  cardHeaderLabel: {
-    fontSize: 16,
+    borderRadius: 16,
+    backgroundColor: colors.surface,
   },
   elevationChart: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    justifyContent: 'space-between',
-    gap: 3,
-    height: 80,
+    gap: 4,
   },
   elevationBar: {
     flex: 1,
-    borderRadius: 2,
+    borderRadius: 3,
+    backgroundColor: colors.surfaceMuted,
+  },
+  elevationBarPeak: {
     backgroundColor: colors.accent,
   },
   elevationAxis: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-  },
-  highlightsList: {
-    gap: spacing.sm,
-  },
-  highlightChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: 8,
-    backgroundColor: colors.surfaceChip,
-  },
-  segmentsSection: {
-    gap: spacing.sm,
-  },
-  segmentsLabel: {
-    textTransform: 'uppercase',
-  },
-  segmentsRow: {
-    flexDirection: 'row',
-    gap: spacing.md,
-  },
-  segmentCard: {
-    flex: 1,
-    height: 112,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.xs,
-    borderRadius: 12,
-    backgroundColor: colors.surfaceRow,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  segmentCardLabel: {
-    textAlign: 'center',
-  },
-  waypointsList: {
-    gap: 0,
+    marginTop: spacing.sm,
   },
   waypointRow: {
     flexDirection: 'row',
-    gap: spacing.md,
+    gap: 12,
   },
+  // Rail vertical : le point de l'étape, puis un trait qui descend jusqu'au
+  // point suivant (la hauteur suit celle de la ligne, via alignSelf stretch).
   waypointRail: {
+    width: WAYPOINT_DOT_SIZE,
     alignItems: 'center',
+    paddingTop: 6,
   },
   waypointDot: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.surfaceChip,
+    width: WAYPOINT_DOT_SIZE,
+    height: WAYPOINT_DOT_SIZE,
+    borderRadius: WAYPOINT_DOT_SIZE / 2,
+    backgroundColor: colors.textSecondary,
   },
   waypointDotEnd: {
-    backgroundColor: colors.accentLight,
+    backgroundColor: colors.accent,
   },
   waypointConnector: {
-    width: 2,
     flex: 1,
-    minHeight: 32,
-    marginTop: spacing.xs,
+    width: 2,
+    marginTop: 4,
     backgroundColor: colors.border,
   },
   waypointTexts: {
@@ -223,54 +125,30 @@ export const styles = StyleSheet.create({
     gap: 2,
     paddingBottom: spacing.md,
   },
-  waypointHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    justifyContent: 'space-between',
+  waypointTextsLast: {
+    paddingBottom: 0,
   },
-  waypointTitle: {
-    fontWeight: '700',
-  },
-  secondaryActionsRow: {
-    flexDirection: 'row',
-    gap: spacing.md,
-  },
-  secondaryActionButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    minHeight: MIN_TOUCH_TARGET_DP,
-    borderRadius: 12,
-    backgroundColor: colors.surfaceRow,
+  footer: {
+    paddingTop: 12,
+    paddingHorizontal: spacing.md,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+    backgroundColor: colors.background,
   },
   launchButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
-    minHeight: 80,
-    paddingHorizontal: spacing.lg,
-    borderRadius: 12,
+    justifyContent: 'center',
+    gap: spacing.sm,
+    minHeight: 52,
+    borderRadius: 14,
     backgroundColor: colors.accent,
   },
-  launchButtonPressed: {
-    opacity: 0.9,
+  launchButtonLabel: {
+    fontSize: 17,
   },
-  launchButtonTexts: {
-    flex: 1,
-    gap: 2,
-  },
-  launchButtonTitle: {
-    fontSize: 20,
-    textTransform: 'uppercase',
-  },
-  launchButtonCaption: {
-    opacity: 0.9,
-  },
-  launchButtonDistance: {
-    fontSize: 16,
-    textAlign: 'center',
+  pressed: {
+    opacity: 0.85,
   },
   snackbarWrapper: {
     position: 'absolute',

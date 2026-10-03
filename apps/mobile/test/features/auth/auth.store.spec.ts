@@ -26,7 +26,7 @@ vi.mock('../../../src/features/auth/api', () => ({
 
 vi.mock('../../../src/features/profile/api', () => ({
   getMe: vi.fn(),
-  setUsername: vi.fn(),
+  setHandle: vi.fn(),
 }));
 
 import { logout, refreshTokenPair } from '../../../src/features/auth/api';
@@ -58,6 +58,7 @@ beforeEach(() => {
     status: 'authenticated',
     accessToken: 'access-1',
     username: 'pilote',
+    tag: 'A1B2',
     email: 'pilote@example.test',
     provider: 'google',
   });
@@ -108,6 +109,7 @@ describe('withFreshAccessToken', () => {
     expect(secureStore.has(REFRESH_TOKEN_KEY)).toBe(false);
     expect(useAuthStore.getState().status).toBe('unauthenticated');
     expect(useAuthStore.getState().accessToken).toBeUndefined();
+    expect(useAuthStore.getState().tag).toBeUndefined();
     expect(logout).not.toHaveBeenCalled();
   });
 
@@ -145,6 +147,7 @@ describe('hydrate', () => {
       status: 'checking',
       accessToken: undefined,
       username: undefined,
+      tag: undefined,
       email: undefined,
       provider: undefined,
     });

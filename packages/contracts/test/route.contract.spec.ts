@@ -11,12 +11,19 @@ const validRoute = {
   ],
   routingOptions: { avoidHighways: false, avoidTolls: false },
   source: 'planned',
+  isFavorite: false,
   createdAt: 0,
 };
 
 describe('routeSchema', () => {
   it('accepte un itinéraire valide', () => {
     expect(routeSchema.safeParse(validRoute).success).toBe(true);
+  });
+
+  it('rejette un itinéraire sans indicateur de favori', () => {
+    const result = routeSchema.safeParse({ ...validRoute, isFavorite: undefined });
+
+    expect(result.success).toBe(false);
   });
 
   it('rejette un itinéraire avec un seul point', () => {

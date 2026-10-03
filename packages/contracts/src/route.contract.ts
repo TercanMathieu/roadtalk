@@ -22,6 +22,10 @@ export const routeSchema = z.object({
   distanceMeters: z.number().nonnegative().optional(),
   durationSeconds: z.number().nonnegative().optional(),
   elevationGainMeters: z.number().nonnegative().optional(),
+  // Mise en avant personnelle, même notion que sur une balade (Ride) :
+  // c'est ce drapeau, pas le simple fait d'être enregistré, qui place un
+  // itinéraire dans l'onglet Favoris.
+  isFavorite: z.boolean(),
   createdAt: z.number().int().nonnegative(),
 });
 
@@ -49,3 +53,9 @@ export const renameRouteRequestSchema = z.object({
 });
 
 export type RenameRouteRequestDto = z.infer<typeof renameRouteRequestSchema>;
+
+export const setRouteFavoriteRequestSchema = z.object({
+  isFavorite: z.boolean(),
+});
+
+export type SetRouteFavoriteRequestDto = z.infer<typeof setRouteFavoriteRequestSchema>;

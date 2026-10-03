@@ -7,261 +7,138 @@ export const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  content: {
-    gap: spacing.md,
-    padding: spacing.md,
-    paddingBottom: spacing.xl,
-  },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: -spacing.sm,
-  },
-  headerTitle: {
-    flex: 1,
-    fontSize: 22,
-    textTransform: 'uppercase',
-  },
-  modelBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
     paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
-    borderRadius: 9999,
-    backgroundColor: colors.surfaceChip,
+    paddingBottom: spacing.sm,
   },
-  modelBadgeDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-    backgroundColor: colors.accent,
-  },
-  modelBadgeLabel: {
-    fontSize: 11,
-  },
-  tripTypeRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    padding: 6,
-    borderRadius: 12,
-    backgroundColor: colors.surfaceRow,
-  },
-  tripTypeButton: {
-    flex: 1,
-    flexDirection: 'row',
+  backButton: {
+    width: MIN_TOUCH_TARGET_DP,
+    height: MIN_TOUCH_TARGET_DP,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  headerTitle: {
+    fontSize: 22,
+  },
+  content: {
+    gap: spacing.lg,
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.lg,
+  },
+  section: {
     gap: spacing.sm,
-    minHeight: MIN_TOUCH_TARGET_DP,
-    borderRadius: 8,
   },
-  tripTypeButtonActive: {
-    backgroundColor: colors.surfaceMuted,
-  },
-  tripTypeLabel: {
-    fontSize: 15,
-    fontWeight: '700',
+  sectionTitle: {
+    paddingHorizontal: spacing.xs,
   },
   card: {
     gap: spacing.md,
     padding: spacing.md,
-    borderRadius: 12,
-    backgroundColor: colors.surfaceRow,
+    borderRadius: 16,
+    backgroundColor: colors.surface,
   },
-  cardHeader: {
+  optionGroup: {
+    flexDirection: 'row',
+    padding: 4,
+    borderRadius: 14,
+    backgroundColor: colors.surface,
+  },
+  option: {
+    flex: 1,
+    minHeight: MIN_TOUCH_TARGET_DP,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 10,
+  },
+  optionActive: {
+    backgroundColor: colors.surfaceMuted,
+  },
+  stepper: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  cardHeaderTitle: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    flexShrink: 1,
-  },
-  cardHeaderLabel: {
-    fontSize: 16,
-    textTransform: 'uppercase',
-  },
-  levelBadge: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    borderRadius: 4,
-    backgroundColor: colors.accent,
-  },
-  sinuosityButtons: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  sinuosityButton: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: 40,
-    borderRadius: 4,
-    backgroundColor: colors.surfaceRaised,
-  },
-  sinuosityButtonActive: {
-    backgroundColor: colors.accent,
-  },
-  sinuosityCaption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  durationPresets: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  durationPresetButton: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 2,
-    minHeight: 52,
-    justifyContent: 'center',
-    borderRadius: 8,
-    backgroundColor: colors.surfaceRaised,
-  },
-  durationPresetButtonActive: {
-    backgroundColor: colors.accent,
-  },
-  durationPresetValue: {
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  fineTuneRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.sm,
-    borderRadius: 8,
-    backgroundColor: colors.surfaceRaised,
-  },
-  fineTuneButton: {
+  stepperButton: {
     width: 48,
     height: 48,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 8,
     backgroundColor: colors.surfaceChip,
   },
-  fineTuneTexts: {
-    alignItems: 'center',
-    gap: 2,
+  stepperValue: {
+    fontSize: 32,
+    fontWeight: '700',
+    letterSpacing: -0.5,
   },
-  fineTuneValue: {
-    fontSize: 22,
-  },
-  criteriaList: {
+  chipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing.sm,
   },
-  criterionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    padding: spacing.md,
-    borderRadius: 8,
-    backgroundColor: colors.surfaceRaised,
-  },
-  criterionTexts: {
-    flex: 1,
-    gap: 2,
-  },
-  poiHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-  },
-  poiCount: {
-    textAlign: 'right',
-  },
-  poiRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    padding: spacing.sm,
-    borderRadius: 8,
-    backgroundColor: colors.surfaceRaised,
-  },
-  poiCheckbox: {
-    width: 20,
-    height: 20,
-    borderRadius: 4,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-  },
-  poiCheckboxChecked: {
-    backgroundColor: colors.accent,
-    borderColor: colors.accent,
-  },
-  poiCheckboxUnchecked: {
-    borderColor: colors.textDense,
-  },
-  poiLabel: {
-    flex: 1,
-  },
-  promptRow: {
-    position: 'relative',
-  },
-  promptInput: {
-    minHeight: 56,
-    borderRadius: 8,
-    backgroundColor: colors.surfaceRaised,
-    color: colors.textPrimary,
-    fontSize: 14,
+  chip: {
+    minHeight: 36,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    paddingRight: 56,
-  },
-  promptVoiceButton: {
-    position: 'absolute',
-    right: spacing.sm,
-    top: spacing.sm,
-    width: 40,
-    height: 40,
-    borderRadius: 6,
-    alignItems: 'center',
     justifyContent: 'center',
+    borderRadius: 9999,
     backgroundColor: colors.surfaceChip,
   },
-  offlineInfoRow: {
+  // Sélection par teinte légère de l'accent, pas par un aplat : plusieurs
+  // puces peuvent être actives à la fois sans concurrencer le bouton Générer.
+  chipActive: {
+    backgroundColor: 'rgba(255, 122, 26, 0.14)',
+  },
+  listCard: {
+    borderRadius: 16,
+    backgroundColor: colors.surface,
+  },
+  listRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: spacing.md,
+    minHeight: 60,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: 8,
-    backgroundColor: colors.surfaceRaised,
+  },
+  listRowDivider: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+  },
+  listRowLabel: {
+    flexShrink: 1,
+  },
+  notesInput: {
+    minHeight: 88,
+    padding: spacing.md,
+    borderRadius: 16,
+    backgroundColor: colors.surface,
+    color: colors.textPrimary,
+    fontSize: 16,
+    textAlignVertical: 'top',
+  },
+  footer: {
+    paddingTop: 12,
+    paddingHorizontal: spacing.md,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+    backgroundColor: colors.background,
   },
   generateButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: spacing.md,
-    minHeight: MIN_TOUCH_TARGET_DP,
-    borderRadius: 12,
+    gap: spacing.sm,
+    minHeight: 52,
+    borderRadius: 14,
     backgroundColor: colors.accent,
   },
-  generateButtonPressed: {
-    opacity: 0.85,
-  },
   generateButtonLabel: {
-    fontSize: 18,
-    textTransform: 'uppercase',
+    fontSize: 17,
   },
-  snackbarWrapper: {
-    position: 'absolute',
-    left: spacing.md,
-    right: spacing.md,
+  pressed: {
+    opacity: 0.85,
   },
 });

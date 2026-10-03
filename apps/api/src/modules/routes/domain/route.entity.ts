@@ -30,6 +30,8 @@ export interface Route {
   readonly distanceMeters: Meters | undefined;
   readonly durationSeconds: Seconds | undefined;
   readonly elevationGainMeters: Meters | undefined;
+  // Mise en avant personnelle par son auteur — jamais vraie à la création.
+  readonly isFavorite: boolean;
   readonly createdAt: TimestampMs;
 }
 
@@ -67,6 +69,7 @@ export function createRoute(params: {
     distanceMeters: undefined,
     durationSeconds: undefined,
     elevationGainMeters: undefined,
+    isFavorite: false,
     createdAt: params.createdAt,
   });
 }

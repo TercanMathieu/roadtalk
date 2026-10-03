@@ -1,5 +1,5 @@
 import type { AddressSuggestionDto, RouteGeometryDto } from '@roadtalk/contracts';
-import { type RefObject, useEffect, useState } from 'react';
+import { type RefObject, useEffect, useRef, useState } from 'react';
 
 import type { LastKnownPosition } from '../../lib/useLastKnownPosition';
 import { withFreshAccessToken } from '../auth/auth.store';
@@ -34,15 +34,23 @@ interface RouteState {
 // `avoidHighways` en dépendance aussi : changer ce réglage en cours de route
 // (ex. depuis les Réglages pendant qu'un itinéraire est déjà affiché) doit
 // redemander un tracé au moteur de routage avec le nouveau paramètre.
+//
+// `rerouteToken` : incrémenté par l'appelant pour redemander un tracé depuis
+// la position actuelle sans que rien d'autre n'ait changé (recalcul en
+// guidage, après une sortie d'itinéraire). Si ce recalcul échoue (réseau
+// dégradé, C3), l'itinéraire en cours est conservé : mieux vaut continuer à
+// guider sur l'ancien tracé que de laisser l'écran de guidage vide.
 export function useRoute(
   stops: readonly AddressSuggestionDto[],
   originRef: RefObject<LastKnownPosition | undefined>,
   hasOrigin: boolean,
   avoidHighways: boolean,
+  rerouteToken: number,
 ): RouteState {
   const [route, setRoute] = useState<RouteGeometryDto | undefined>(undefined);
   const [isComputing, setIsComputing] = useState(false);
   const [error, setError] = useState<string | undefined>(undefined);
+  const handledRerouteTokenRef = useRef(rerouteToken);
   const stopCoordinatesKey = stops
     .map((stop) => `${String(stop.latitude)},${String(stop.longitude)}`)
     .join('|');
@@ -66,6 +74,9 @@ export function useRoute(
       return;
     }
 
+    const isReroute = rerouteToken !== handledRerouteTokenRef.current;
+    handledRerouteTokenRef.current = rerouteToken;
+
     let cancelled = false;
     setIsComputing(true);
     setError(undefined);
@@ -82,7 +93,7 @@ export function useRoute(
         }
       })
       .catch(() => {
-        if (!cancelled) {
+        if (!cancelled && !isReroute) {
           setRoute(undefined);
           setError("Itinéraire indisponible, réessaie.");
         }
@@ -96,7 +107,7 @@ export function useRoute(
     return () => {
       cancelled = true;
     };
-  }, [stopCoordinatesKey, originRef, hasOrigin, avoidHighways]);
+  }, [stopCoordinatesKey, originRef, hasOrigin, avoidHighways, rerouteToken]);
 
   return { route, isComputing, error };
 }

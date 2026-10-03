@@ -9,6 +9,7 @@
     "build": "turbo run build",
     "db:shell": "docker compose -f infra/docker/docker-compose.yml exec postgres psql -U roadtalk -d roadtalk",
     "db:studio": "pnpm --filter @roadtalk/api exec prisma studio",
+    "moderation": "pnpm --filter @roadtalk/api moderation",
     "dev": "turbo run dev",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

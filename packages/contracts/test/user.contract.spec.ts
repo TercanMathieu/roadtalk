@@ -8,6 +8,9 @@ const validUser = {
   firstName: 'Marie',
   lastName: 'Dupont',
   username: null,
+  tag: null,
+  usernameChangeAllowedAt: null,
+  usernameRejectedAt: null,
   createdAt: 0,
   provider: 'google',
 };
@@ -47,23 +50,32 @@ describe('updateUserSchema', () => {
 });
 
 describe('setUsernameSchema', () => {
-  it('accepte un pseudo valide', () => {
-    expect(setUsernameSchema.safeParse({ username: 'moto_rider_42' }).success).toBe(true);
+  it('accepte un pseudo valide avec son tag', () => {
+    expect(setUsernameSchema.safeParse({ username: 'moto_rider_42', tag: 'BCDF' }).success).toBe(true);
   });
 
-  it('rejette les majuscules', () => {
-    expect(setUsernameSchema.safeParse({ username: 'MotoRider' }).success).toBe(false);
+  it('accepte les majuscules : la casse choisie est conservée', () => {
+    expect(setUsernameSchema.safeParse({ username: 'MotoRider', tag: 'BCDF' }).success).toBe(true);
   });
 
   it('rejette un pseudo trop court', () => {
-    expect(setUsernameSchema.safeParse({ username: 'ab' }).success).toBe(false);
+    expect(setUsernameSchema.safeParse({ username: 'ab', tag: 'BCDF' }).success).toBe(false);
   });
 
   it('rejette un pseudo trop long', () => {
-    expect(setUsernameSchema.safeParse({ username: 'a'.repeat(21) }).success).toBe(false);
+    expect(setUsernameSchema.safeParse({ username: 'a'.repeat(17), tag: 'BCDF' }).success).toBe(false);
   });
 
-  it('rejette les caractères spéciaux', () => {
-    expect(setUsernameSchema.safeParse({ username: 'moto-rider' }).success).toBe(false);
+  it('rejette les caractères spéciaux et les accents', () => {
+    expect(setUsernameSchema.safeParse({ username: 'moto-rider', tag: 'BCDF' }).success).toBe(false);
+    expect(setUsernameSchema.safeParse({ username: 'Jérôme', tag: 'BCDF' }).success).toBe(false);
+  });
+
+  it('rejette une requête sans tag', () => {
+    expect(setUsernameSchema.safeParse({ username: 'MotoRider' }).success).toBe(false);
+  });
+
+  it.each(['BCDA', 'bcdf', 'BCD', 'BCDFG', 'BC1F'])('rejette un tag qui ne fait pas 4 consonnes majuscules : %s', (tag) => {
+    expect(setUsernameSchema.safeParse({ username: 'MotoRider', tag }).success).toBe(false);
   });
 });

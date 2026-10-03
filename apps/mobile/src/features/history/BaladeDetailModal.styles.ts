@@ -33,35 +33,33 @@ export const styles = StyleSheet.create({
     backgroundColor: colors.surfaceChip,
   },
   badgeLabel: {
-    fontSize: 10,
+    fontSize: 11,
   },
-  name: {
-    fontSize: 20,
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
     marginTop: spacing.xs,
+  },
+  // Champ de saisie habillé comme un titre : le nom se modifie en touchant
+  // dessus, le crayon à côté le signale.
+  nameInput: {
+    flex: 1,
+    paddingVertical: spacing.xs,
+    color: colors.textPrimary,
+    fontSize: 22,
+    fontWeight: '600',
   },
   dateLabel: {
     fontSize: 12,
   },
+  // Même hauteur que RideTrackMap (192, imposée par le composant) : plus
+  // haute, une bande vide apparaissait sous la carte.
   mapWrapper: {
-    height: 220,
-    borderRadius: 12,
+    height: 192,
+    borderRadius: 16,
     overflow: 'hidden',
     backgroundColor: colors.surfaceChip,
-  },
-  mapOverlayBadge: {
-    position: 'absolute',
-    left: spacing.sm,
-    bottom: spacing.sm,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: spacing.xs,
-    paddingVertical: 2,
-    borderRadius: 6,
-    backgroundColor: 'rgba(11, 13, 16, 0.85)',
-  },
-  mapOverlayLabel: {
-    fontSize: 10,
   },
   statsRow: {
     flexDirection: 'row',
@@ -71,16 +69,22 @@ export const styles = StyleSheet.create({
   statTile: {
     flexBasis: '30%',
     flexGrow: 1,
-    gap: 1,
-    padding: spacing.sm,
-    borderRadius: 10,
-    backgroundColor: colors.surfaceChip,
+    gap: 2,
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: colors.surface,
   },
   statLabel: {
-    fontSize: 10,
+    fontSize: 11,
   },
   statValue: {
-    fontSize: 15,
+    fontSize: 17,
+  },
+  section: {
+    gap: spacing.sm,
+  },
+  sectionTitle: {
+    paddingHorizontal: spacing.xs,
   },
   actions: {
     gap: spacing.sm,
@@ -90,25 +94,40 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.xs,
-    minHeight: 46,
-    borderRadius: 10,
+    minHeight: 52,
+    borderRadius: 14,
     backgroundColor: colors.accent,
   },
   primaryButtonLabel: {
-    fontSize: 13,
+    fontSize: 17,
   },
   secondaryRow: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: spacing.xs,
+    gap: spacing.sm,
   },
   secondaryButton: {
-    width: 44,
-    height: 44,
+    flex: 1,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 10,
+    gap: spacing.sm,
+    minHeight: 48,
+    paddingHorizontal: spacing.sm,
+    borderRadius: 14,
     backgroundColor: colors.surfaceChip,
+  },
+  secondaryButtonLabel: {
+    fontSize: 15,
+  },
+  deleteButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    minHeight: 48,
+    marginTop: spacing.sm,
+    borderRadius: 14,
+    backgroundColor: colors.dangerContainer,
   },
   pressed: {
     opacity: 0.85,

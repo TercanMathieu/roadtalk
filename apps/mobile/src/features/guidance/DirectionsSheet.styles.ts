@@ -34,20 +34,22 @@ export const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
+  title: {
+    fontSize: 22,
+  },
   iconCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: colors.accent,
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    // Neutre : une colonne entière de pastilles en couleur d'accent noyait
+    // la seule vraie action de l'écran (quitter le guidage).
+    backgroundColor: colors.surfaceChip,
     alignItems: 'center',
     justifyContent: 'center',
   },
   texts: {
     flex: 1,
     gap: 2,
-  },
-  streetName: {
-    marginTop: 2,
   },
   exitSection: {
     padding: spacing.md,
@@ -60,15 +62,15 @@ export const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: spacing.sm,
     minHeight: MIN_TOUCH_TARGET_DP,
-    borderRadius: 12,
+    borderRadius: 14,
     // Plein (pas dangerContainer, translucide) : action du menu de guidage,
-    // pas un réglage au repos — même convention que GuidanceFooter.
+    // pas un réglage au repos.
     backgroundColor: colors.dangerSolid,
   },
   exitButtonPressed: {
     opacity: 0.85,
   },
   exitButtonLabel: {
-    fontSize: 18,
+    fontSize: 17,
   },
 });

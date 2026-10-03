@@ -23,17 +23,20 @@ interface NearestPoint {
   readonly distance: Meters;
 }
 
-// Point le plus proche par recherche exhaustive — pas une projection sur les
-// segments du tracé. Un trajet réel a au plus quelques centaines de points
-// (un point tous les ~10-30m), largement assez rapide pour tourner à chaque
-// mise à jour GPS ; une projection point-segment serait plus précise mais
-// inutile ici, l'écart reste sous la précision du GPS lui-même.
-function findNearestPathPoint(path: readonly GeoPointDto[], position: GeoPointDto): NearestPoint {
+// Point le plus proche parmi path[fromIndex..toIndex] — pas une projection
+// sur les segments du tracé. Une projection point-segment serait plus
+// précise mais inutile ici, l'écart reste sous la précision du GPS lui-même.
+function findNearestPathPoint(
+  path: readonly GeoPointDto[],
+  position: GeoPointDto,
+  fromIndex = 0,
+  toIndex = path.length - 1,
+): NearestPoint {
   const positionPoint = toGeoPoint(position);
-  let nearestIndex = 0;
+  let nearestIndex = fromIndex;
   let nearestDistance = meters(Number.POSITIVE_INFINITY);
 
-  for (let i = 0; i < path.length; i += 1) {
+  for (let i = fromIndex; i <= toIndex; i += 1) {
     const point = path[i];
     if (point === undefined) {
       continue;
@@ -47,6 +50,39 @@ function findNearestPathPoint(path: readonly GeoPointDto[], position: GeoPointDt
   }
 
   return { index: nearestIndex, distance: nearestDistance };
+}
+
+// Fenêtre de recherche autour de la dernière position connue sur le tracé.
+// Sans elle, un trajet qui repasse au même endroit (boucle, aller-retour)
+// faisait sauter la progression d'un passage à l'autre : au départ d'une
+// boucle, le point le plus proche pouvait être l'arrivée, et le guidage se
+// terminait aussitôt. Un peu en arrière pour absorber le bruit GPS, assez
+// loin en avant pour survivre à une courte perte de signal (tunnel) ; au-delà,
+// la position est traitée comme hors itinéraire et le trajet est recalculé.
+const SEARCH_WINDOW_BEHIND_METERS = 50;
+const SEARCH_WINDOW_AHEAD_METERS = 400;
+
+function findSearchWindow(
+  cumulativeDistances: readonly Meters[],
+  previousIndex: number,
+): { readonly fromIndex: number; readonly toIndex: number } {
+  const previousDistance = cumulativeDistances[previousIndex] ?? meters(0);
+  const lastIndex = cumulativeDistances.length - 1;
+
+  let fromIndex = previousIndex;
+  while (fromIndex > 0 && previousDistance - (cumulativeDistances[fromIndex - 1] ?? 0) <= SEARCH_WINDOW_BEHIND_METERS) {
+    fromIndex -= 1;
+  }
+
+  let toIndex = previousIndex;
+  while (
+    toIndex < lastIndex &&
+    (cumulativeDistances[toIndex + 1] ?? 0) - previousDistance <= SEARCH_WINDOW_AHEAD_METERS
+  ) {
+    toIndex += 1;
+  }
+
+  return { fromIndex, toIndex };
 }
 
 function buildCumulativeDistances(path: readonly GeoPointDto[]): readonly Meters[] {
@@ -94,8 +130,13 @@ export function buildRouteProgressModel(route: RouteGeometryDto): RouteProgressM
   const cumulativeDistances = buildCumulativeDistances(route.path);
   const totalDistance = cumulativeDistances[cumulativeDistances.length - 1] ?? meters(0);
 
+  // Les manœuvres sont dans l'ordre de parcours : chacune se cherche à partir
+  // de la précédente, jamais sur tout le tracé — sur une boucle, un point
+  // traversé deux fois serait sinon rattaché au mauvais passage.
+  let searchFromIndex = 0;
   const maneuverProgress = route.maneuvers.map((maneuver) => {
-    const { index } = findNearestPathPoint(route.path, maneuver.point);
+    const { index } = findNearestPathPoint(route.path, maneuver.point, searchFromIndex);
+    searchFromIndex = index;
     return { maneuver, cumulativeDistance: cumulativeDistances[index] ?? meters(0) };
   });
 
@@ -111,9 +152,9 @@ export function buildRouteProgressModel(route: RouteGeometryDto): RouteProgressM
 
 export interface ManeuverStep {
   readonly maneuver: ManeuverDto;
-  // Distance du segment de route gouverné par cette manœuvre, jusqu'à la
-  // suivante — 0 pour la dernière (l'arrivée n'a rien après elle).
-  readonly segmentDistance: Meters;
+  // Distance à parcourir depuis la manœuvre précédente pour atteindre
+  // celle-ci ("dans 300 m, tournez à droite") — 0 pour la toute première.
+  readonly distanceFromPrevious: Meters;
 }
 
 // Récapitulatif complet du trajet (toutes les manœuvres, pas seulement la
@@ -121,10 +162,10 @@ export interface ManeuverStep {
 // pour l'affichage glanceable en roulant (voir ManeuverBanner).
 export function getManeuverSteps(model: RouteProgressModel): readonly ManeuverStep[] {
   return model.maneuverProgress.map((entry, index) => {
-    const next = model.maneuverProgress[index + 1];
-    const segmentDistance =
-      next !== undefined ? meters(Math.max(0, next.cumulativeDistance - entry.cumulativeDistance)) : meters(0);
-    return { maneuver: entry.maneuver, segmentDistance };
+    const previous = model.maneuverProgress[index - 1];
+    const distanceFromPrevious =
+      previous !== undefined ? meters(Math.max(0, entry.cumulativeDistance - previous.cumulativeDistance)) : meters(0);
+    return { maneuver: entry.maneuver, distanceFromPrevious };
   });
 }
 
@@ -136,8 +177,21 @@ export interface RouteProgress {
   // Estimation proportionnelle à partir de la durée totale Valhalla — pas la
   // vitesse réelle du pilote (voir RouteProgressModel.totalDuration).
   readonly durationRemaining: Seconds;
+  // Index, dans `path`, du point du tracé retenu pour cette position — à
+  // repasser au calcul suivant (voir computeRouteProgress, `previousIndex`).
+  readonly pathIndex: number;
   readonly nextManeuver: ManeuverDto | undefined;
+  // Position de `nextManeuver` dans la liste des manœuvres du trajet (même
+  // ordre que getManeuverSteps) — undefined quand il n'y en a plus.
+  readonly nextManeuverIndex: number | undefined;
   readonly distanceToNextManeuver: Meters | undefined;
+  // Manœuvre qui suit `nextManeuver`, seulement si elle arrive juste après
+  // (voir THEN_MANEUVER_MAX_GAP_METERS) : deux virages enchaînés s'annoncent
+  // ensemble ("à droite, puis à gauche"), sinon le second surprend.
+  readonly thenManeuver: ManeuverDto | undefined;
+  // Nombre d'arrêts déjà atteints (une manœuvre "destination" par arrêt) —
+  // sert à ne pas renvoyer vers un arrêt déjà visité lors d'un recalcul.
+  readonly stopsReached: number;
   // Limitation du tronçon en cours. undefined quand elle est inconnue du
   // moteur de routage, ou hors trajet : la limitation d'une route qu'on ne
   // suit plus ne dit rien de celle où l'on roule.
@@ -157,25 +211,52 @@ function findSpeedLimitMps(model: RouteProgressModel, pathIndex: number): number
   )?.speedLimitMps;
 }
 
+const THEN_MANEUVER_MAX_GAP_METERS = 150;
+
 // `>` strict, pas `>=` : une manœuvre exactement à la position courante vient
 // d'être franchie, ce n'est plus la prochaine.
-export function computeRouteProgress(model: RouteProgressModel, position: GeoPointDto): RouteProgress {
-  const { index, distance } = findNearestPathPoint(model.path, position);
+//
+// `previousIndex` : le `pathIndex` du calcul précédent sur ce même trajet. La
+// recherche se limite alors à une fenêtre autour de lui (voir
+// findSearchWindow). Absent (premier calcul), la fenêtre part du début du
+// tracé : le guidage démarre toujours à l'origine de l'itinéraire.
+export function computeRouteProgress(
+  model: RouteProgressModel,
+  position: GeoPointDto,
+  previousIndex = 0,
+): RouteProgress {
+  const { fromIndex, toIndex } = findSearchWindow(model.cumulativeDistances, previousIndex);
+  const nearest = findNearestPathPoint(model.path, position, fromIndex, toIndex);
+  const isOffRoute = nearest.distance > OFF_ROUTE_THRESHOLD_METERS;
+  // Hors itinéraire, la progression ne bouge pas : le point "le plus proche"
+  // d'une position qui a quitté le tracé ne dit rien de l'avancement réel.
+  const index = isOffRoute ? previousIndex : nearest.index;
   const progress = model.cumulativeDistances[index] ?? meters(0);
   const distanceRemaining = meters(Math.max(0, model.totalDistance - progress));
   const remainingRatio = model.totalDistance > 0 ? distanceRemaining / model.totalDistance : 0;
   const durationRemaining = seconds(model.totalDuration * remainingRatio);
 
-  const upcoming = model.maneuverProgress.find((entry) => entry.cumulativeDistance > progress);
+  const upcomingIndex = model.maneuverProgress.findIndex((entry) => entry.cumulativeDistance > progress);
+  const upcoming = model.maneuverProgress[upcomingIndex];
+  const following = upcoming !== undefined ? model.maneuverProgress[upcomingIndex + 1] : undefined;
+  const isFollowingClose =
+    upcoming !== undefined &&
+    following !== undefined &&
+    following.cumulativeDistance - upcoming.cumulativeDistance <= THEN_MANEUVER_MAX_GAP_METERS;
 
   return {
     distanceRemaining,
-    distanceFromRoute: distance,
+    distanceFromRoute: nearest.distance,
     durationRemaining,
+    pathIndex: index,
     nextManeuver: upcoming?.maneuver,
+    nextManeuverIndex: upcoming !== undefined ? upcomingIndex : undefined,
     distanceToNextManeuver:
       upcoming !== undefined ? meters(Math.max(0, upcoming.cumulativeDistance - progress)) : undefined,
-    speedLimitMps:
-      distance > OFF_ROUTE_THRESHOLD_METERS ? undefined : findSpeedLimitMps(model, index),
+    thenManeuver: isFollowingClose ? following.maneuver : undefined,
+    stopsReached: model.maneuverProgress.filter(
+      (entry) => entry.maneuver.type === 'destination' && entry.cumulativeDistance <= progress,
+    ).length,
+    speedLimitMps: isOffRoute ? undefined : findSpeedLimitMps(model, index),
   };
 }

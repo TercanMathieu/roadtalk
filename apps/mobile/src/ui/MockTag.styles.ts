@@ -4,10 +4,9 @@ import { colors, spacing } from './tokens';
 
 export const styles = StyleSheet.create({
   tag: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: spacing.xs,
-    borderRadius: 4,
-    borderWidth: 1,
-    borderColor: colors.danger,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: 9999,
+    backgroundColor: colors.surfaceMuted,
   },
 });

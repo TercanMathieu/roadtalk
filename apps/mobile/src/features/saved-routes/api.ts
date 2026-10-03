@@ -36,3 +36,11 @@ export async function listRoutes(accessToken: string): Promise<readonly RouteDto
 export async function deleteRoute(accessToken: string, id: string): Promise<void> {
   await request('DELETE', `/routes/${id}`, { accessToken });
 }
+
+export async function renameRoute(accessToken: string, id: string, name: string): Promise<void> {
+  await request('PATCH', `/routes/${id}/name`, { accessToken, body: { name } });
+}
+
+export async function setRouteFavorite(accessToken: string, id: string, isFavorite: boolean): Promise<void> {
+  await request('PATCH', `/routes/${id}/favorite`, { accessToken, body: { isFavorite } });
+}

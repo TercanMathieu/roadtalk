@@ -148,7 +148,7 @@ export function RideSummaryScreen({ summary, points, onClose }: Props): React.JS
               {first !== undefined && last !== undefined ? (
                 <View style={styles.timestampRow}>
                   <MaterialCommunityIcons name="clock-outline" size={15} color={colors.textSecondary} />
-                  <Text variant="mono" color={colors.textDense}>
+                  <Text variant="caption" color={colors.textSecondary}>
                     {`${formatClockTime(first.recordedAt)} - ${formatClockTime(last.recordedAt)} (${formatDuration(summary.durationSeconds)})`}
                   </Text>
                 </View>
@@ -158,22 +158,22 @@ export function RideSummaryScreen({ summary, points, onClose }: Props): React.JS
 
           <View style={styles.statsSection}>
             <View style={styles.statsHeader}>
-              <Text variant="label" color={colors.textDense} style={styles.statsHeaderLabel}>
-                TÉLÉMÉTRIE DU PARCOURS
+              <Text variant="label" color={colors.textSecondary}>
+                Résumé
               </Text>
             </View>
 
             <View style={styles.distanceCard}>
               <View>
-                <Text variant="label" color={colors.textDense} style={styles.statLabel}>
-                  DISTANCE TOTALE
+                <Text variant="label" color={colors.textSecondary}>
+                  Distance
                 </Text>
                 <View style={styles.distanceValueRow}>
                   <Text variant="display" style={styles.distanceValue}>
                     {formatDistanceKmValue(summary.distanceMeters)}
                   </Text>
-                  <Text variant="title" color={colors.accent} style={styles.distanceUnit}>
-                    KM
+                  <Text variant="title" color={colors.textSecondary} style={styles.distanceUnit}>
+                    km
                   </Text>
                 </View>
               </View>
@@ -183,21 +183,21 @@ export function RideSummaryScreen({ summary, points, onClose }: Props): React.JS
             </View>
 
             <View style={styles.statsGrid}>
-              <StatTile label="VITESSE MOYENNE" value={formatSpeedKmhValue(summary.averageSpeedMps)} unit="KM/H" />
+              <StatTile label="Vitesse moyenne" value={formatSpeedKmhValue(summary.averageSpeedMps)} unit="km/h" />
               <StatTile
-                label="VITESSE MAX"
+                label="Vitesse max"
                 value={formatSpeedKmhValue(summary.maxSpeedMps)}
-                unit="KM/H"
+                unit="km/h"
                 icon="speedometer"
               />
               <StatTile
-                label="DÉNIVELÉ (D+)"
+                label="Dénivelé positif"
                 value={formatElevationMeters(summary.elevationGainMeters)}
-                unit="M"
+                unit="m"
                 icon="trending-up"
               />
               <StatTile
-                label="TEMPS À L'ARRÊT"
+                label="À l'arrêt"
                 value={formatDuration(summary.stoppedSeconds)}
                 icon="coffee-outline"
               />
@@ -218,7 +218,7 @@ export function RideSummaryScreen({ summary, points, onClose }: Props): React.JS
               </View>
               <View style={styles.notesTexts}>
                 <Text variant="body">Conditions de route</Text>
-                <Text variant="mono" color={colors.textDense}>
+                <Text variant="caption" color={colors.textSecondary}>
                   Ajouter une note (météo, revêtement…)
                 </Text>
               </View>
@@ -300,17 +300,17 @@ function StatTile({ label, value, unit, icon }: StatTileProps): React.JSX.Elemen
   return (
     <View style={styles.statTile}>
       <View style={styles.statTileHeader}>
-        <Text variant="label" color={colors.textDense} style={styles.statLabel}>
+        <Text variant="label" color={colors.textSecondary}>
           {label}
         </Text>
-        {icon !== undefined ? <MaterialCommunityIcons name={icon} size={14} color={colors.textDense} /> : null}
+        {icon !== undefined ? <MaterialCommunityIcons name={icon} size={14} color={colors.textSecondary} /> : null}
       </View>
       <View style={styles.statValueRow}>
         <Text variant="title" color={colors.textPrimary} style={styles.statValue}>
           {value}
         </Text>
         {unit !== undefined ? (
-          <Text variant="label" color={colors.textDense}>
+          <Text variant="label" color={colors.textSecondary}>
             {unit}
           </Text>
         ) : null}

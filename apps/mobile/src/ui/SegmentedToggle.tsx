@@ -39,8 +39,8 @@ export function SegmentedToggle<T extends string>({ options, value, onChange }: 
             ]}
           >
             <Text
-              variant="monoBold"
-              color={isActive ? colors.onAccentLight : colors.textDense}
+              variant="captionStrong"
+              color={isActive ? colors.textPrimary : colors.textSecondary}
               style={styles.optionLabel}
             >
               {option.label}

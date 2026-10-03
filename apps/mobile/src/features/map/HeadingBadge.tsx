@@ -24,9 +24,9 @@ export function HeadingBadge({ headingDeg }: Props): React.JSX.Element | null {
 
   return (
     <View style={styles.badge}>
-      <MaterialCommunityIcons name="compass-outline" size={ICON_SIZE} color={colors.textPrimary} />
-      <Text variant="monoBold" color={colors.textPrimary}>
-        CAP {String(normalized).padStart(3, '0')}°
+      <MaterialCommunityIcons name="compass-outline" size={ICON_SIZE} color={colors.textSecondary} />
+      <Text variant="captionStrong" color={colors.textPrimary}>
+        {String(normalized).padStart(3, '0')}°
       </Text>
     </View>
   );

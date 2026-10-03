@@ -12,11 +12,25 @@ model User {
   email        String   @unique
   firstName    String   @map("first_name")
   lastName     String   @map("last_name")
-  // Nullable : absent tant que l'utilisateur ne l'a pas choisi après sa
-  // première connexion (mobile redirige vers l'écran de choix tant que null).
-  // Unique autorise plusieurs NULL en Postgres (pas de conflit tant qu'il
-  // n'est pas encore renseigné).
-  username     String?  @unique
+  // Identifiant public "Pseudo#TAG" (ADR-003). Les trois colonnes sont
+  // nulles tant que l'utilisateur n'a pas rempli sa fiche après sa première
+  // connexion (le mobile y redirige tant que username est null), et
+  // renseignées ensemble ensuite.
+  //   username    : tel que saisi, casse conservée — pour l'affichage.
+  //   usernameKey : forme de comparaison (minuscules) — pour l'unicité.
+  //   tag         : 4 consonnes tirées par le serveur.
+  // L'unicité porte sur la paire (usernameKey, tag) ; Postgres autorise
+  // plusieurs lignes à NULL, donc pas de conflit avant le choix.
+  username          String?
+  usernameKey       String?   @map("username_key")
+  tag               String?
+  // Dernier changement d'identifiant : sert à n'en autoriser qu'un tous les
+  // 3 mois. Null tant qu'il n'a jamais été choisi.
+  usernameChangedAt DateTime? @map("username_changed_at") @db.Timestamptz(3)
+  // Posé quand la modération retire l'identifiant (script de modération) :
+  // l'utilisateur doit en choisir un autre, et l'app lui dit pourquoi.
+  // Remis à null dès qu'il en a choisi un nouveau.
+  usernameRejectedAt DateTime? @map("username_rejected_at") @db.Timestamptz(3)
   // Identifiants OAuth : au moins un des deux est renseigné (F1 — Apple ou
   // Google, jamais de mot de passe). C'est le service qui garantit qu'un
   // User n'est créé que via findOrCreateFromOAuth, pas une contrainte ici.
@@ -29,6 +43,7 @@ model User {
   rides                 Ride[]
   routes                Route[]
 
+  @@unique([usernameKey, tag])
   @@map("users")
 }
 
@@ -154,9 +169,28 @@ model Route {
   durationSeconds     Float?   @map("duration_seconds")
   elevationGainMeters Float?   @map("elevation_gain_meters")
 
+  // Même notion que Ride.isFavorite : mise en avant personnelle, c'est elle
+  // qui place l'itinéraire dans l'onglet Favoris du mobile.
+  isFavorite Boolean @default(false) @map("is_favorite")
+
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
 
   // Tri par récence, filtré par auteur.
   @@index([authorId, createdAt])
   @@map("routes")
+}
+
+// Termes ajoutés par la modération au filtre des pseudos, en plus de la liste
+// écrite dans le code (modules/users/username-policy.ts) : se met à jour sans
+// redéployer l'API (ADR-003). Stockés sous forme normalisée (minuscules).
+model BlockedUsernameTerm {
+  id   String @id @default(uuid()) @db.Uuid
+  term String @unique
+  // 'contains' : interdit même à l'intérieur d'un pseudo.
+  // 'exact'    : interdit seulement comme pseudo entier ou morceau isolé.
+  match String
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@map("blocked_username_terms")
 }

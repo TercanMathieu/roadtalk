@@ -50,6 +50,7 @@ pnpm services:down                  # arrête tout
 pnpm db:shell                       # psql interactif dans le conteneur
 pnpm db:studio                      # Prisma Studio, interface web sur :5555
 pnpm redis:shell                    # redis-cli interactif dans le conteneur
+pnpm moderation                     # modération des pseudos (recent, reject, block…)
 
 cd apps/api && pnpm db:migrate      # prisma migrate dev
 cd apps/api && pnpm db:generate     # prisma generate (après modif de prisma/schema.prisma)
@@ -255,6 +256,72 @@ Conventional Commits (`feat:`, `fix:`, `perf:`, `refactor:`, `docs:`, `chore:`).
 Aucun commit n'a encore été fait sur ce dépôt (`git log` est vide) : tout le travail
 existant est en working tree. Ne jamais commiter sans demande explicite de
 l'utilisateur, même si l'historique est actuellement vide.
+
+## Mise en production — à créer ou à changer
+
+Liste de ce qui n'existe qu'en local et devra être créé, configuré ou remplacé avant
+une mise en production. **À tenir à jour** : dès qu'un travail introduit une nouvelle
+dépendance de production (service, variable d'environnement, clé, migration, compte
+tiers, module natif), l'ajouter ici dans la même session ; retirer une ligne quand
+elle est réglée. Rien de tout ceci n'est déployé aujourd'hui.
+
+### Infrastructure à créer (hébergement UE, C4 ; budget < 100 €/mois, C5)
+
+- **Serveur de l'API** (NestJS). Prévoir un vrai build : `packages/contracts` et
+  `packages/domain-shared` n'ont pas d'étape de build (voir Architecture > Monorepo).
+- **PostgreSQL + PostGIS**, avec sauvegardes automatiques et restauration testée.
+- **Valhalla** auto-hébergé avec l'extrait OSM France (aujourd'hui : conteneur local).
+  Prévoir la mise à jour périodique de l'extrait.
+- **Photon** auto-hébergé : `PHOTON_URL` pointe par défaut sur l'instance
+  communautaire `photon.komoot.io`, qui reçoit donc des coordonnées d'utilisateurs —
+  recherche d'adresses, et récapitulatif des balades (une requête par départ, arrêt
+  et arrivée). Inacceptable en production (C4).
+- **Stockage de fichiers S3-compatible** (R2 prévu) pour les photos de profil — pas
+  encore construit côté code ; MinIO à ajouter au docker-compose pour le dev. Les
+  images devront être réencodées côté serveur et débarrassées de leurs métadonnées
+  (position GPS dans l'EXIF, C4).
+- **Redis** : requis seulement quand BullMQ sera branché (purges automatisées).
+- **HTTPS et nom de domaine** pour l'API (reverse proxy, certificats).
+
+### Configuration et secrets
+
+- **API** (`apps/api/.env.example`) : `DATABASE_URL`, `JWT_PRIVATE_KEY` /
+  `JWT_PUBLIC_KEY` (générer une paire EdDSA propre à la production, jamais celle de
+  dev), `GOOGLE_OAUTH_CLIENT_ID`, `APPLE_CLIENT_ID`, `PHOTON_URL`, `VALHALLA_URL`.
+- **Mobile** : `EXPO_PUBLIC_API_URL` (obligatoire hors dev, où l'adresse est déduite
+  de Metro), `EXPO_PUBLIC_MAPTILER_API_KEY` (clé de production, à restreindre),
+  `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID`, `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID`.
+- **Google Cloud** : clients OAuth Web, iOS et Android de production ; l'identifiant
+  inversé du client iOS doit figurer dans `app.json` (`iosUrlScheme`).
+- **Migrations** : `prisma migrate deploy` à chaque déploiement, jamais `migrate dev`.
+
+### Comptes et publication
+
+- **Apple Developer Program** : nécessaire pour publier sur l'App Store, et pour la
+  connexion Apple — l'API est prête (`POST /auth/apple`), aucun bouton mobile. Apple
+  l'exige dès qu'une app propose la connexion Google.
+- **Google Play Console**, et **EAS Build** pour produire les binaires.
+- **MapTiler** : vérifier que le volume de tuiles tient dans l'offre choisie.
+- **Sentry + OpenTelemetry → Grafana Cloud** : décidé, pas branché.
+
+### À construire avant d'ouvrir à des utilisateurs
+
+- **RGPD (C4)** : export des données (le bouton est une maquette, aucun endpoint) ;
+  purge automatisée et durée de rétention (attendent BullMQ) ; politique de
+  confidentialité et mentions légales.
+- **Modération des pseudos** : filtre automatique (liste dans
+  `modules/users/username-policy.ts`, ADR-003) plus termes ajoutés en base, et retrait
+  manuel d'un identifiant — le tout via `pnpm moderation` (script local, sans route
+  HTTP). En production : donner à ce script un accès à la base de prod (tunnel ou
+  exécution sur le serveur) et prendre l'habitude de relire `pnpm moderation recent`.
+  Signalement par les utilisateurs et modération des photos restent à construire
+  avant que les fiches soient visibles par d'autres (amis, V2).
+- **Limitation de débit** sur l'API : absente aujourd'hui (authentification,
+  recherche d'adresses, suggestion de pseudo).
+- **Robustesse du guidage** : tracé GPS gardé en mémoire seulement (perdu si l'app
+  est tuée), pas de localisation en arrière-plan, pas de guidage vocal.
+- **Écrans encore en maquette** à retirer ou terminer : génération d'itinéraire par
+  IA, import GPX, cartes hors-ligne, zones de danger.
 
 ## Contraintes métier
 

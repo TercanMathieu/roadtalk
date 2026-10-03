@@ -9,10 +9,10 @@ import { styles } from './ReorderableStepRow.styles';
 import { styles as cardStyles } from './TripSummaryCard.styles';
 
 const ICON_SIZE = 18;
-// Hauteur de ligne + espacement (stepRow minHeight 48 + stepsList gap 4,
+// Hauteur de ligne + espacement (stepRow minHeight 48 + stepsList gap 0,
 // voir TripSummaryCard.styles.ts) : sert à convertir une distance de
 // glissement en nombre de rangs déplacés.
-const ROW_PITCH = 52;
+const ROW_PITCH = 48;
 
 // Catégories réelles que l'utilisateur choisit lui-même — jamais une donnée
 // devinée par l'app (pas d'altitude inventée type "Col 1011m" : aucune
@@ -82,13 +82,13 @@ export function ReorderableStepRow({
   return (
     <Animated.View style={[cardStyles.stepRow, { transform: [{ translateY: dragY }], zIndex: 1 }]}>
       <View style={cardStyles.stepBadge}>
-        <Text variant="monoBold" color={colors.textPrimary}>
+        <Text variant="captionStrong" color={colors.textPrimary}>
           {index + 1}
         </Text>
       </View>
       <View style={cardStyles.stepTexts}>
         <View style={styles.tagRow}>
-          <Text variant="mono" color={colors.textDense} style={cardStyles.stepLabel}>
+          <Text variant="caption" color={colors.textSecondary} style={cardStyles.stepLabel}>
             {`Étape ${String(index + 1)}`}
           </Text>
           <Pressable
@@ -100,11 +100,11 @@ export function ReorderableStepRow({
             style={tag !== undefined ? styles.tag : styles.addTag}
           >
             <Text
-              variant="monoBold"
+              variant="captionStrong"
               color={tag !== undefined ? colors.accent : colors.textSecondary}
               style={tag !== undefined ? styles.tagLabel : styles.addTagLabel}
             >
-              {tag !== undefined ? tag.toUpperCase() : '+ TAG'}
+              {tag ?? '+ Catégorie'}
             </Text>
           </Pressable>
         </View>
