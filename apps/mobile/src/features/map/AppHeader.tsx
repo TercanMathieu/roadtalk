@@ -6,11 +6,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { colors, Text } from '../../ui';
 import { useAuthStore } from '../auth/auth.store';
+import { useIncomingFriendRequestCount } from '../friends/useIncomingFriendRequestCount';
 import type { GpsStatus } from './appHeader.store';
 import { styles } from './AppHeader.styles';
 
 const GPS_ICON_SIZE = 15;
 const AVATAR_ICON_SIZE = 16;
+const FRIENDS_ICON_SIZE = 18;
 
 interface Props {
   // GPS réel (permission + premier fix reçu) — jamais une valeur inventée :
@@ -32,6 +34,7 @@ export function AppHeader({ gpsStatus }: Props): React.JSX.Element {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const username = useAuthStore((state) => state.username);
+  const incomingFriendRequests = useIncomingFriendRequestCount();
   // Un GPS qui fonctionne n'a pas à attirer l'œil : seul l'état anormal
   // (coupé) prend une couleur, l'accent restant réservé aux actions.
   const gpsColor = gpsStatus === 'off' ? colors.danger : colors.textSecondary;
@@ -54,6 +57,22 @@ export function AppHeader({ gpsStatus }: Props): React.JSX.Element {
               {GPS_LABELS[gpsStatus]}
             </Text>
           </View>
+
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={
+              incomingFriendRequests > 0
+                ? `Amis, ${String(incomingFriendRequests)} demande(s) reçue(s)`
+                : 'Amis'
+            }
+            onPress={() => {
+              router.push('/friends');
+            }}
+            style={styles.avatarButton}
+          >
+            <MaterialCommunityIcons name="account-multiple-outline" size={FRIENDS_ICON_SIZE} color={colors.textPrimary} />
+            {incomingFriendRequests > 0 ? <View style={styles.badge} /> : null}
+          </Pressable>
 
           <Pressable
             accessibilityRole="button"

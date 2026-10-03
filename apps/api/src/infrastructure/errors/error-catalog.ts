@@ -76,6 +76,26 @@ export const ERROR_CATALOG: Record<ErrorCode, ErrorDefinition> = {
     status: HttpStatus.UNPROCESSABLE_ENTITY,
     message: 'Arrivée trop éloignée pour la durée choisie',
   },
+  [ErrorCode.FRIEND_HANDLE_NOT_FOUND]: {
+    status: HttpStatus.NOT_FOUND,
+    message: 'Aucun motard avec cet identifiant',
+  },
+  [ErrorCode.FRIEND_REQUEST_INVALID]: {
+    status: HttpStatus.UNPROCESSABLE_ENTITY,
+    message: "Demande d'ami impossible",
+  },
+  [ErrorCode.FRIEND_ALREADY_CONNECTED]: {
+    status: HttpStatus.CONFLICT,
+    message: 'Vous êtes déjà amis, ou une demande est en cours',
+  },
+  [ErrorCode.FRIEND_REQUEST_LIMIT]: {
+    status: HttpStatus.TOO_MANY_REQUESTS,
+    message: "Trop de demandes d'amis envoyées aujourd'hui",
+  },
+  [ErrorCode.FRIEND_REQUEST_NOT_FOUND]: {
+    status: HttpStatus.NOT_FOUND,
+    message: 'Demande ou ami introuvable',
+  },
   [ErrorCode.ROUTING_PROVIDER_UNAVAILABLE]: {
     status: HttpStatus.BAD_GATEWAY,
     message: 'Service de calcul d\'itinéraire momentanément indisponible',

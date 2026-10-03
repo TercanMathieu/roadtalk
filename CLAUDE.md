@@ -21,6 +21,9 @@ remettre en cause un choix qui y est tracé :
 - **ADR-004** : itinéraire IA — le modèle (Claude, API hébergée) choisit des lieux
   nommés, le serveur les géocode et Valhalla calcule le trajet ; seules les communes de
   départ et d'arrivée quittent nos serveurs ; quota quotidien par utilisateur.
+- **ADR-005** : amis — ajout par identifiant exact `Pseudo#TAG` (aucun annuaire),
+  demande puis acceptation, blocage silencieux ; un autre motard ne voit que
+  l'identifiant public, jamais le nom ni l'e-mail.
 
 ## Commandes
 
@@ -322,7 +325,8 @@ elle est réglée. Rien de tout ceci n'est déployé aujourd'hui.
 
 ### À construire avant d'ouvrir à des utilisateurs
 
-- **RGPD (C4)** : export des données (le bouton est une maquette, aucun endpoint) ;
+- **RGPD (C4)** : export des données (le bouton est une maquette, aucun endpoint ;
+  il devra inclure amis, demandes et blocages) ;
   purge automatisée et durée de rétention (attendent BullMQ) ; politique de
   confidentialité et mentions légales.
 - **Modération des pseudos** : filtre automatique (liste dans
@@ -330,10 +334,13 @@ elle est réglée. Rien de tout ceci n'est déployé aujourd'hui.
   manuel d'un identifiant — le tout via `pnpm moderation` (script local, sans route
   HTTP). En production : donner à ce script un accès à la base de prod (tunnel ou
   exécution sur le serveur) et prendre l'habitude de relire `pnpm moderation recent`.
-  Signalement par les utilisateurs et modération des photos restent à construire
-  avant que les fiches soient visibles par d'autres (amis, V2).
+  Les identifiants sont désormais visibles des autres motards (amis, ADR-005) :
+  le signalement par les utilisateurs reste à construire — seul le blocage
+  existe — ainsi que la modération des photos avant de les ouvrir aux amis.
 - **Limitation de débit** sur l'API : absente aujourd'hui (authentification,
-  recherche d'adresses, suggestion de pseudo).
+  recherche d'adresses, suggestion de pseudo, recherche d'un ami par
+  `Pseudo#TAG` — sans elle, un tag se devine par essais successifs). Seul
+  l'envoi de demandes d'amis est plafonné (20 par 24 h).
 - **Enregistrement des balades** : le tracé est écrit sur le disque (`ride-journal.ts`)
   et proposé à la récupération si l'app est tuée ; une tâche de localisation
   (`background-recording.ts`) continue l'enregistrement écran verrouillé. Pour les
@@ -357,8 +364,8 @@ elle est réglée. Rien de tout ceci n'est déployé aujourd'hui.
   purgée ; elle ne contient ni position ni texte, mais prévoir de la vider au-delà
   de quelques mois quand BullMQ arrivera.
 - **Écrans encore en maquette** à retirer ou terminer : import GPX, cartes
-  hors-ligne, zones de danger, onglet « Amis » des Balades (vide tant que le
-  système d'amis, prévu en V2, n'existe pas).
+  hors-ligne, zones de danger, onglet « Amis » des Balades (vide tant que
+  l'envoi de balades entre amis n'existe pas).
 
 ## Contraintes métier
 
@@ -398,7 +405,8 @@ Périmètre V1 : compte via Apple/Google uniquement (F1, pas de mot de passe —
 ADR sur l'auth à venir), profil, carte, recherche, création d'itinéraire, import GPX,
 guidage turn-by-turn, enregistrement de trace, résumé de balade, historique, cartes
 hors-ligne (portée réduite : pré-cache du corridor de l'itinéraire, pas de téléchargement
-de région complète), réglages/RGPD. Hors périmètre V1, ne pas anticiper au-delà du
-nommage : suivi de groupe temps réel, chat vocal/WebRTC, chat de proximité, système
-communautaire, site web, notifications push, détection de chute/SOS, Kafka/CQRS/Event
-Sourcing/microservices.
+de région complète), réglages/RGPD, itinéraire IA (ADR-004), amis (ajout, demandes,
+blocage — ADR-005, avancé en V1 le 2026-10-03 ; l'envoi de balades entre amis suit).
+Hors périmètre V1, ne pas anticiper au-delà du nommage : suivi de groupe temps réel,
+chat vocal/WebRTC, chat de proximité, système communautaire au-delà des amis, site
+web, notifications push, détection de chute/SOS, Kafka/CQRS/Event Sourcing/microservices.

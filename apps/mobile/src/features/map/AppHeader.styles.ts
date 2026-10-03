@@ -55,6 +55,19 @@ export const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: colors.surfaceChip,
   },
+  // Demande d'ami reçue : un point d'accent, sans chiffre — l'écran Amis
+  // donne le détail.
+  badge: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    borderWidth: 2,
+    borderColor: colors.background,
+    backgroundColor: colors.accent,
+  },
   avatarInitial: {
     fontSize: 13,
     color: colors.textPrimary,

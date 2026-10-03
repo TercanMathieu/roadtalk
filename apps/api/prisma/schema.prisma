@@ -38,11 +38,15 @@ model User {
   googleUserId       String?   @unique @map("google_user_id")
   createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
 
-  refreshTokens         RefreshToken[]
-  addressHistoryEntries AddressHistoryEntry[]
-  rides                 Ride[]
-  routes                Route[]
-  aiRouteGenerations    AiRouteGeneration[]
+  refreshTokens          RefreshToken[]
+  addressHistoryEntries  AddressHistoryEntry[]
+  rides                  Ride[]
+  routes                 Route[]
+  aiRouteGenerations     AiRouteGeneration[]
+  sentFriendRequests     Friendship[]          @relation("FriendshipRequester")
+  receivedFriendRequests Friendship[]          @relation("FriendshipAddressee")
+  blocks                 UserBlock[]           @relation("UserBlocker")
+  blockedBy              UserBlock[]           @relation("UserBlocked")
 
   @@unique([usernameKey, tag])
   @@map("users")
@@ -216,4 +220,38 @@ model AiRouteGeneration {
 
   @@index([userId, createdAt])
   @@map("ai_route_generations")
+}
+
+// Demande d'ami, puis amitié une fois acceptée (ADR-005) : une seule ligne
+// par paire de motards, quel que soit le sens de la demande.
+model Friendship {
+  id          String    @id @default(uuid()) @db.Uuid
+  requesterId String    @map("requester_id") @db.Uuid
+  requester   User      @relation("FriendshipRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  addresseeId String    @map("addressee_id") @db.Uuid
+  addressee   User      @relation("FriendshipAddressee", fields: [addresseeId], references: [id], onDelete: Cascade)
+  // Les deux identifiants triés puis joints : A→B et B→A ont la même clé,
+  // donc ne peuvent pas coexister — garanti par la base, pas par le code.
+  pairKey     String    @unique @map("pair_key")
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  // Nul tant que la demande est en attente.
+  acceptedAt  DateTime? @map("accepted_at") @db.Timestamptz(3)
+
+  @@index([requesterId, createdAt])
+  @@index([addresseeId])
+  @@map("friendships")
+}
+
+// Blocage : le motard bloqué ne peut plus envoyer de demande à celui qui
+// l'a bloqué, et n'en est pas averti (ADR-005).
+model UserBlock {
+  blockerId String   @map("blocker_id") @db.Uuid
+  blocker   User     @relation("UserBlocker", fields: [blockerId], references: [id], onDelete: Cascade)
+  blockedId String   @map("blocked_id") @db.Uuid
+  blocked   User     @relation("UserBlocked", fields: [blockedId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@id([blockerId, blockedId])
+  @@index([blockedId])
+  @@map("user_blocks")
 }

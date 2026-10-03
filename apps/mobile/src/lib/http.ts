@@ -37,7 +37,10 @@ export async function request(method: string, path: string, options?: RequestOpt
     );
   }
 
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  // Seulement avec un corps : Fastify refuse un POST annoncé en JSON mais
+  // vide (FST_ERR_CTP_EMPTY_JSON_BODY), ex. accepter une demande d'ami.
+  const headers: Record<string, string> =
+    options?.body !== undefined ? { 'Content-Type': 'application/json' } : {};
   if (options?.accessToken !== undefined) {
     headers['Authorization'] = `Bearer ${options.accessToken}`;
   }
