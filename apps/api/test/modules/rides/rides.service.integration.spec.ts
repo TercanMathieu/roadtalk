@@ -2,6 +2,7 @@ import { execSync } from 'node:child_process';
 import path from 'node:path';
 
 import {
+  createRideId,
   degrees,
   meters,
   metersPerSecond,
@@ -260,5 +261,31 @@ describe('RidesService (intégration, vraie Postgres via Testcontainers)', () =>
     const stolen = await service.renameForOwner(saved.value.ride.id, toUserId(stranger.id), 'Volé');
 
     expect(stolen).toBe(false);
+  });
+
+  it('saveCompleted avec le même identifiant ne crée pas de doublon (envoi rejoué)', async () => {
+    const user = await createUser('rides-idempotent');
+    const ownerId = toUserId(user.id);
+    const id = createRideId();
+    const input = {
+      id,
+      ownerId,
+      name: 'Balade rejouée',
+      startedAt: timestampMs(1_700_000_000_000),
+      endedAt: timestampMs(1_700_000_060_000),
+      track: [
+        { position: { latitude: degrees(48.85), longitude: degrees(2.35) }, recordedAt: timestampMs(1_700_000_000_000), speedMps: undefined, altitudeMeters: undefined, accuracyMeters: meters(5) },
+        { position: { latitude: degrees(48.86), longitude: degrees(2.36) }, recordedAt: timestampMs(1_700_000_060_000), speedMps: undefined, altitudeMeters: undefined, accuracyMeters: meters(5) },
+      ],
+    };
+
+    const first = await service.saveCompleted(input);
+    const second = await service.saveCompleted({ ...input, name: 'Autre nom' });
+
+    expect(first.ok && second.ok).toBe(true);
+    if (!first.ok || !second.ok) return;
+    expect(second.value.ride.id).toBe(first.value.ride.id);
+    expect(second.value.name).toBe('Balade rejouée');
+    expect(await service.listForOwner(ownerId)).toHaveLength(1);
   });
 });

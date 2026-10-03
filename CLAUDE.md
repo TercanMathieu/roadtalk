@@ -327,8 +327,10 @@ elle est réglée. Rien de tout ceci n'est déployé aujourd'hui.
   avant que les fiches soient visibles par d'autres (amis, V2).
 - **Limitation de débit** sur l'API : absente aujourd'hui (authentification,
   recherche d'adresses, suggestion de pseudo).
-- **Robustesse du guidage** : tracé GPS gardé en mémoire seulement (perdu si l'app
-  est tuée), pas de localisation en arrière-plan, pas de guidage vocal.
+- **Robustesse du guidage** : le tracé est écrit sur le disque par paquets de 10 points
+  (`ride-journal.ts`) et proposé à la récupération si l'app est tuée. Reste : pas de
+  localisation en arrière-plan (le tracé s'arrête écran verrouillé, il faudra la
+  permission « toujours » et sa justification pour les stores), pas de guidage vocal.
 - **Écrans encore en maquette** à retirer ou terminer : génération d'itinéraire par
   IA, import GPX, cartes hors-ligne, zones de danger.
 

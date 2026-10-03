@@ -9,6 +9,7 @@ import { request } from '../../lib/http';
 import type { TrackPoint } from '../ride-summary/track-point';
 
 export interface SaveRideParams {
+  readonly id: string;
   readonly name: string;
   readonly startedAt: number;
   readonly endedAt: number;
@@ -32,6 +33,7 @@ export async function saveRide(accessToken: string, params: SaveRideParams): Pro
   const json = await request('POST', '/rides', {
     accessToken,
     body: {
+      id: params.id,
       name: params.name,
       startedAt: params.startedAt,
       endedAt: params.endedAt,
