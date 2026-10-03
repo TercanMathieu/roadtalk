@@ -1,4 +1,4 @@
-import { ErrorCode, type UserDto } from '@roadtalk/contracts';
+import { ErrorCode, type TokenPairDto, type UserDto } from '@roadtalk/contracts';
 import * as SecureStore from 'expo-secure-store';
 import { create } from 'zustand';
 
@@ -53,19 +53,20 @@ export const useAuthStore = create<AuthState>((set) => ({
     }
 
     try {
-      const tokens = await refreshTokenPair(storedRefreshToken);
-      await SecureStore.setItemAsync(REFRESH_TOKEN_KEY, tokens.refreshToken);
-      const me = await getMe(tokens.accessToken);
+      const accessToken = await refreshAccessToken();
+      const me = await getMe(accessToken);
       set({
         status: 'authenticated',
-        accessToken: tokens.accessToken,
+        accessToken,
         ...toProfileState(me),
         email: me.email,
         provider: me.provider,
       });
     } catch {
-      await SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY);
-      set({ status: 'unauthenticated' });
+      // Le refresh token n'est pas effacé ici : s'il a été refusé par le
+      // serveur, refreshAccessToken() l'a déjà fait ; sinon l'échec est
+      // transitoire (C3) et la session doit survivre au prochain lancement.
+      set({ status: 'unauthenticated', accessToken: undefined });
     }
   },
 
@@ -89,17 +90,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       // si le serveur est injoignable.
       await logout(storedRefreshToken).catch(() => undefined);
     }
-    await SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY);
-    set({
-      status: 'unauthenticated',
-      accessToken: undefined,
-      username: undefined,
-      tag: undefined,
-      usernameChangeAllowedAt: undefined,
-      usernameRejectedAt: undefined,
-      email: undefined,
-      provider: undefined,
-    });
+    await clearLocalSession();
   },
 
   saveHandle: async (username: string, tag: string) => {
@@ -107,6 +98,33 @@ export const useAuthStore = create<AuthState>((set) => ({
     set(toProfileState(me));
   },
 }));
+
+async function clearLocalSession(): Promise<void> {
+  await SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY);
+  useAuthStore.setState({
+    status: 'unauthenticated',
+    accessToken: undefined,
+    username: undefined,
+    tag: undefined,
+    usernameChangeAllowedAt: undefined,
+    usernameRejectedAt: undefined,
+    email: undefined,
+    provider: undefined,
+  });
+}
+
+// Seuls refus de POST /auth/refresh qui prouvent que la session est morte.
+// Tout le reste (réseau, 5xx, INTERNAL_ERROR) est transitoire : le refresh
+// token stocké reste valable et doit être conservé (C3).
+const SESSION_ENDED_CODES: ReadonlySet<ErrorCode> = new Set([
+  ErrorCode.AUTH_REFRESH_TOKEN_INVALID,
+  ErrorCode.AUTH_REFRESH_TOKEN_REUSED,
+  ErrorCode.AUTH_REFRESH_TOKEN_EXPIRED,
+]);
+
+function isSessionEnded(error: unknown): boolean {
+  return error instanceof ApiError && SESSION_ENDED_CODES.has(error.code);
+}
 
 function toProfileState(
   me: UserDto,
@@ -128,10 +146,21 @@ let refreshInFlight: Promise<string> | undefined;
 async function performRefresh(): Promise<string> {
   const storedRefreshToken = await SecureStore.getItemAsync(REFRESH_TOKEN_KEY);
   if (storedRefreshToken === null) {
+    await clearLocalSession();
     throw new Error('Aucune session à rafraîchir');
   }
 
-  const tokens = await refreshTokenPair(storedRefreshToken);
+  let tokens: TokenPairDto;
+  try {
+    tokens = await refreshTokenPair(storedRefreshToken);
+  } catch (error) {
+    // Effacement local seulement, sans appeler logout : le serveur vient de
+    // refuser ce jeton, il n'y a plus rien à révoquer.
+    if (isSessionEnded(error)) {
+      await clearLocalSession();
+    }
+    throw error;
+  }
   await SecureStore.setItemAsync(REFRESH_TOKEN_KEY, tokens.refreshToken);
   useAuthStore.setState({ accessToken: tokens.accessToken });
 
@@ -169,13 +198,8 @@ export async function withFreshAccessToken<T>(
   }
 
   // Un seul réessai : si le jeton fraîchement émis est refusé lui aussi,
-  // insister ne ferait que boucler.
-  try {
-    return await call(await refreshAccessToken());
-  } catch (error) {
-    // La session est morte (refresh expiré, révoqué, ou vol détecté) :
-    // déconnecter proprement plutôt que laisser l'app dans un état zombie.
-    await useAuthStore.getState().signOut();
-    throw error;
-  }
+  // insister ne ferait que boucler. Aucun échec ici ne déconnecte : seul un
+  // refus du rafraîchissement lui-même met fin à la session, et c'est
+  // refreshAccessToken() qui s'en charge.
+  return call(await refreshAccessToken());
 }
