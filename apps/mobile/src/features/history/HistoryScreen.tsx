@@ -23,13 +23,28 @@ const GPX_UNAVAILABLE_MESSAGE = 'Import GPX bientôt disponible.';
 const GPX_EXPORT_FAILED_MESSAGE = "L'export GPX a échoué.";
 const LAUNCH_FAILED_MESSAGE = 'Impossible de charger le tracé de cette balade.';
 
-type Tab = 'all' | 'favorites' | 'gpxImports';
+type Tab = 'history' | 'saved' | 'favorites' | 'friends';
 
-// Trois onglets : tout, les favoris (balades et itinéraires marqués d'une
-// étoile), et les imports GPX — honnêtement vide, aucun import GPX n'existe
-// dans l'app.
+const TAB_OPTIONS: readonly { value: Tab; label: string }[] = [
+  { value: 'history', label: 'Historique' },
+  { value: 'saved', label: 'Enregistrées' },
+  { value: 'favorites', label: 'Favoris' },
+  { value: 'friends', label: 'Amis' },
+];
+
+const EMPTY_MESSAGES: Record<Tab, string> = {
+  history: 'Aucune balade pour l’instant. Lance un guidage : ta balade s’enregistre ici.',
+  saved: 'Aucun itinéraire enregistré. Prépare-en un sur la carte ou avec l’IA, puis enregistre-le.',
+  favorites: 'Aucun favori pour l’instant. Touche l’étoile d’une balade pour la retrouver ici.',
+  // Le système d'amis n'existe pas encore (V2) : onglet honnêtement vide.
+  friends: 'Bientôt : les balades que tes amis t’enverront arriveront ici.',
+};
+
+// Quatre onglets : l'historique des balades roulées, les itinéraires
+// enregistrés (préparés sur la carte ou générés par l'IA), les favoris des
+// deux, et les balades reçues d'amis — vide tant que les amis n'existent pas.
 export function HistoryScreen(): React.JSX.Element {
-  const [tab, setTab] = useState<Tab>('all');
+  const [tab, setTab] = useState<Tab>('history');
   // Identifiant plutôt que l'objet : le détail relit ainsi la version à jour
   // de la liste (nom, favori) au lieu d'une copie figée à l'ouverture.
   const [selectedId, setSelectedId] = useState<string | undefined>(undefined);
@@ -71,11 +86,13 @@ export function HistoryScreen(): React.JSX.Element {
 
   const latestRide = rides[0];
 
-  const allItems: readonly BaladeItem[] = [
-    ...rides.map((ride): BaladeItem => ({ kind: 'ride', ride })),
-    ...routes.map((route): BaladeItem => ({ kind: 'route', route })),
-  ].sort((a, b) => itemDate(b) - itemDate(a));
-  const favoriteItems = allItems.filter(itemIsFavorite);
+  // Les deux listes arrivent de l'API déjà triées, la plus récente d'abord.
+  const rideItems = rides.map((ride): BaladeItem => ({ kind: 'ride', ride }));
+  const routeItems = routes.map((route): BaladeItem => ({ kind: 'route', route }));
+  const allItems = [...rideItems, ...routeItems];
+  const favoriteItems = allItems
+    .filter(itemIsFavorite)
+    .sort((a, b) => itemDate(b) - itemDate(a));
   const selectedItem = allItems.find((item) => itemId(item) === selectedId);
 
   // Relancer un itinéraire reprend ses arrêts ; relancer une balade vise son
@@ -135,21 +152,25 @@ export function HistoryScreen(): React.JSX.Element {
     }
   };
 
-  const items = tab === 'all' ? allItems : tab === 'favorites' ? favoriteItems : [];
-  const isLoading = isLoadingRides || isLoadingRoutes;
-  const error = ridesError ?? routesError;
-  const emptyMessage =
-    tab === 'gpxImports'
-      ? 'Import GPX pas encore disponible — aucun itinéraire importé.'
-      : tab === 'favorites'
-        ? 'Aucun favori pour l’instant. Touche l’étoile d’une balade pour la retrouver ici.'
-        : 'Aucune balade ni itinéraire enregistré pour l’instant.';
-
-  const tabOptions: readonly { value: Tab; label: string }[] = [
-    { value: 'all', label: `Toutes · ${String(allItems.length)}` },
-    { value: 'favorites', label: `Favoris · ${String(favoriteItems.length)}` },
-    { value: 'gpxImports', label: 'Imports GPX' },
-  ];
+  // Historique : la dernière balade a sa carte en tête de liste, les lignes
+  // reprennent à partir de la précédente.
+  const items: readonly BaladeItem[] =
+    tab === 'history'
+      ? rideItems.slice(1)
+      : tab === 'saved'
+        ? routeItems
+        : tab === 'favorites'
+          ? favoriteItems
+          : [];
+  const isEmpty = tab === 'history' ? latestRide === undefined : items.length === 0;
+  const isLoading =
+    tab === 'history'
+      ? isLoadingRides
+      : tab === 'saved'
+        ? isLoadingRoutes
+        : isLoadingRides || isLoadingRoutes;
+  const error =
+    tab === 'history' ? ridesError : tab === 'saved' ? routesError : (ridesError ?? routesError);
 
   return (
     <View style={styles.container}>
@@ -173,14 +194,16 @@ export function HistoryScreen(): React.JSX.Element {
           </Pressable>
         </View>
         <View style={styles.tabs}>
-          <SegmentedToggle options={tabOptions} value={tab} onChange={setTab} />
+          <SegmentedToggle options={TAB_OPTIONS} value={tab} onChange={setTab} />
         </View>
       </View>
 
-      {items.length === 0 ? (
+      {isEmpty ? (
         <View style={styles.centered}>
           <Text variant="body" color={colors.textSecondary} style={styles.subtitle}>
-            {error ?? (isLoading ? 'Chargement…' : emptyMessage)}
+            {tab === 'friends'
+              ? EMPTY_MESSAGES.friends
+              : (error ?? (isLoading ? 'Chargement…' : EMPTY_MESSAGES[tab]))}
           </Text>
         </View>
       ) : (
@@ -200,7 +223,7 @@ export function HistoryScreen(): React.JSX.Element {
             />
           }
           ListHeaderComponent={
-            tab === 'all' ? (
+            tab === 'history' ? (
               <View style={styles.listHeaderSection}>
                 <CarnetDeRouteCard rides={rides} />
                 {latestRide !== undefined ? (
@@ -220,9 +243,11 @@ export function HistoryScreen(): React.JSX.Element {
                     }}
                   />
                 ) : null}
-                <Text variant="label" color={colors.textSecondary} style={styles.sectionLabel}>
-                  Récentes
-                </Text>
+                {items.length > 0 ? (
+                  <Text variant="label" color={colors.textSecondary} style={styles.sectionLabel}>
+                    Précédentes
+                  </Text>
+                ) : null}
               </View>
             ) : null
           }
