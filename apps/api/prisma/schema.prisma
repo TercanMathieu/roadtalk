@@ -160,6 +160,10 @@ model Route {
   // 'planned' | 'gpx_import' (RouteSource, domain/route.entity.ts).
   source String
 
+  // Départ choisi sur la carte plutôt que la position de l'utilisateur au
+  // moment de la sauvegarde (voir routeSchema.fixedStart).
+  fixedStart Boolean @default(false) @map("fixed_start")
+
   // Calculés côté client au moment de la sauvegarde (le même moteur de
   // routage vient de répondre quelques instants plus tôt) — jamais
   // recalculés par resauter sur Valhalla ici, contrairement au résumé de

@@ -8,7 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, SegmentedToggle, Snackbar, spacing, Text, useSnackbar } from '../../ui';
 import { APP_HEADER_HEIGHT } from '../map/AppHeader.styles';
 import { usePendingRouteLaunchStore } from '../saved-routes/pendingRouteLaunch.store';
-import { saveRoutesWaypointsToStops } from '../saved-routes/toStops';
+import { savedRouteOrigin, saveRoutesWaypointsToStops } from '../saved-routes/toStops';
 import { useSavedRoutes } from '../saved-routes/useSavedRoutes';
 import { BaladeCard } from './BaladeCard';
 import { BaladeDetailModal } from './BaladeDetailModal';
@@ -68,9 +68,11 @@ export function HistoryScreen(): React.JSX.Element {
   // point d'arrivée (dernier point du tracé), faute d'arrêts enregistrés.
   const handleLaunch = (item: BaladeItem, geometry: BaladeGeometry | undefined): void => {
     if (item.kind === 'route') {
+      const origin = item.route.fixedStart ? savedRouteOrigin(item.route.waypoints) : undefined;
       usePendingRouteLaunchStore.getState().setPending({
         stops: saveRoutesWaypointsToStops(item.route.waypoints),
         avoidHighways: item.route.routingOptions.avoidHighways,
+        ...(origin !== undefined ? { origin } : {}),
       });
       router.push('/');
       return;

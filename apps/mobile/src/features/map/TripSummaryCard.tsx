@@ -55,6 +55,19 @@ interface Props {
   // sélecteur dédié, ajouter un arrêt passe toujours par la recherche.
   readonly onAddStop: () => void;
   readonly onStart: () => void;
+  // Départ choisi sur la carte : son libellé. Absent, le départ est la
+  // position actuelle.
+  readonly customOriginLabel: string | undefined;
+  // Appui sur la ligne de départ : le prochain résultat de recherche devient
+  // le départ.
+  readonly onEditOrigin: () => void;
+  // Revient au départ depuis la position actuelle.
+  readonly onResetOrigin: () => void;
+  // True tant que la recherche sert à choisir le départ.
+  readonly isPickingOrigin: boolean;
+  // Raison pour laquelle on ne peut pas démarrer maintenant (départ trop
+  // loin de la position actuelle) ; absent = démarrage possible.
+  readonly startBlockedReason: string | undefined;
   // Sauvegarde l'itinéraire planifié (pas encore roulé) — distinct de
   // "Sauvegarder dans l'historique" sur RideSummaryScreen, qui sauvegarde
   // une trace GPS réelle une fois la balade terminée.
@@ -82,6 +95,11 @@ export function TripSummaryCard({
   onSetStopTag,
   onAddStop,
   onStart,
+  customOriginLabel,
+  onEditOrigin,
+  onResetOrigin,
+  isPickingOrigin,
+  startBlockedReason,
   onSaveRoute,
   isSavingRoute,
   isRouteSaved,
@@ -208,22 +226,43 @@ export function TripSummaryCard({
       )}
 
       <View style={styles.stepsList}>
-        <View style={styles.stepRow}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Changer le point de départ"
+          onPress={onEditOrigin}
+          style={({ pressed }) => [styles.stepRow, pressed ? styles.addStopButtonPressed : null]}
+        >
           <View style={[styles.stepBadge, styles.originBadge]}>
-            <MaterialCommunityIcons name="crosshairs-gps" size={14} color={colors.textSecondary} />
+            <MaterialCommunityIcons
+              name={customOriginLabel !== undefined ? 'map-marker' : 'crosshairs-gps'}
+              size={14}
+              color={colors.textSecondary}
+            />
           </View>
           <View style={styles.stepTexts}>
-            <Text variant="caption" color={colors.textSecondary} style={styles.stepLabel}>
-              Départ
+            <Text variant="caption" color={isPickingOrigin ? colors.accent : colors.textSecondary} style={styles.stepLabel}>
+              {isPickingOrigin ? 'Départ — choisis-le dans la recherche' : 'Départ'}
             </Text>
             {/* Pas de géocodage inverse de la position de l'utilisateur
                 lui-même (coûteux, jamais utilisé ailleurs) : un libellé
                 générique plutôt qu'une fausse adresse précise. */}
             <Text variant="body" numberOfLines={1} style={styles.stepAddress}>
-              Position actuelle
+              {customOriginLabel ?? 'Position actuelle'}
             </Text>
           </View>
-        </View>
+          {customOriginLabel !== undefined ? (
+            <Pressable
+              onPress={onResetOrigin}
+              accessibilityRole="button"
+              accessibilityLabel="Repartir de ma position"
+              style={styles.closeButton}
+            >
+              <MaterialCommunityIcons name="crosshairs-gps" size={ICON_SIZE} color={colors.textSecondary} />
+            </Pressable>
+          ) : (
+            <MaterialCommunityIcons name="pencil-outline" size={16} color={colors.textSecondary} />
+          )}
+        </Pressable>
 
         {stops.map((stop, index) => {
           const isLast = index === stops.length - 1;
@@ -298,43 +337,75 @@ export function TripSummaryCard({
         </Pressable>
       </View>
 
-      <View style={styles.actionsRow}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={isRouteSaved ? 'Itinéraire déjà enregistré' : "Enregistrer l'itinéraire"}
-          accessibilityState={{ disabled: route === undefined || isSavingRoute || isRouteSaved }}
-          disabled={route === undefined || isSavingRoute || isRouteSaved}
-          onPress={onSaveRoute}
-          style={({ pressed }) => [
-            styles.saveRouteButton,
-            route === undefined || isSavingRoute ? styles.startButtonDisabled : null,
-            pressed ? styles.startButtonPressed : null,
-          ]}
-        >
-          <MaterialCommunityIcons
-            name={isRouteSaved ? 'check-circle-outline' : 'content-save-outline'}
-            size={START_ICON_SIZE}
-            color={isRouteSaved ? colors.accent : colors.textPrimary}
-          />
-        </Pressable>
+      {startBlockedReason !== undefined ? (
+        <Text variant="caption" color={colors.textSecondary} style={styles.message}>
+          {startBlockedReason}
+        </Text>
+      ) : null}
 
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Démarrer le guidage"
-          accessibilityState={{ disabled: route === undefined }}
-          disabled={route === undefined}
-          onPress={onStart}
-          style={({ pressed }) => [
-            styles.startButton,
-            route === undefined ? styles.startButtonDisabled : null,
-            pressed ? styles.startButtonPressed : null,
-          ]}
-        >
-          <Text variant="title" color={colors.onAccentLight} style={styles.startButtonLabel}>
-            Démarrer
-          </Text>
-          <MaterialCommunityIcons name="navigation-variant" size={START_ICON_SIZE} color={colors.onAccentLight} />
-        </Pressable>
+      <View style={styles.actionsRow}>
+        {startBlockedReason === undefined ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={isRouteSaved ? 'Itinéraire déjà enregistré' : "Enregistrer l'itinéraire"}
+            accessibilityState={{ disabled: route === undefined || isSavingRoute || isRouteSaved }}
+            disabled={route === undefined || isSavingRoute || isRouteSaved}
+            onPress={onSaveRoute}
+            style={({ pressed }) => [
+              styles.saveRouteButton,
+              route === undefined || isSavingRoute ? styles.startButtonDisabled : null,
+              pressed ? styles.startButtonPressed : null,
+            ]}
+          >
+            <MaterialCommunityIcons
+              name={isRouteSaved ? 'check-circle-outline' : 'content-save-outline'}
+              size={START_ICON_SIZE}
+              color={isRouteSaved ? colors.accent : colors.textPrimary}
+            />
+          </Pressable>
+        ) : null}
+
+        {startBlockedReason !== undefined ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Enregistrer la balade pour la lancer plus tard"
+            accessibilityState={{ disabled: route === undefined || isSavingRoute || isRouteSaved }}
+            disabled={route === undefined || isSavingRoute || isRouteSaved}
+            onPress={onSaveRoute}
+            style={({ pressed }) => [
+              styles.startButton,
+              route === undefined || isSavingRoute || isRouteSaved ? styles.startButtonDisabled : null,
+              pressed ? styles.startButtonPressed : null,
+            ]}
+          >
+            <Text variant="title" color={colors.onAccentLight} style={styles.startButtonLabel}>
+              {isRouteSaved ? 'Enregistrée' : 'Enregistrer la balade'}
+            </Text>
+            <MaterialCommunityIcons
+              name={isRouteSaved ? 'check-circle-outline' : 'content-save-outline'}
+              size={START_ICON_SIZE}
+              color={colors.onAccentLight}
+            />
+          </Pressable>
+        ) : (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Démarrer le guidage"
+            accessibilityState={{ disabled: route === undefined }}
+            disabled={route === undefined}
+            onPress={onStart}
+            style={({ pressed }) => [
+              styles.startButton,
+              route === undefined ? styles.startButtonDisabled : null,
+              pressed ? styles.startButtonPressed : null,
+            ]}
+          >
+            <Text variant="title" color={colors.onAccentLight} style={styles.startButtonLabel}>
+              Démarrer
+            </Text>
+            <MaterialCommunityIcons name="navigation-variant" size={START_ICON_SIZE} color={colors.onAccentLight} />
+          </Pressable>
+        )}
       </View>
     </>
   );

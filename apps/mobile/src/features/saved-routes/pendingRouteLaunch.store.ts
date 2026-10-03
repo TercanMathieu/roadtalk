@@ -4,6 +4,9 @@ import { create } from 'zustand';
 export interface PendingRouteLaunch {
   readonly stops: readonly AddressSuggestionDto[];
   readonly avoidHighways: boolean;
+  // Départ choisi sur la carte, pour un itinéraire enregistré qui en avait un
+  // (voir RouteDto.fixedStart). Absent : départ depuis la position actuelle.
+  readonly origin?: AddressSuggestionDto;
 }
 
 interface PendingRouteLaunchState {

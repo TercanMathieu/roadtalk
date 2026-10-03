@@ -234,4 +234,28 @@ describe('RoutesService (intégration, vraie Postgres via Testcontainers)', () =
 
     expect(stolen).toBe(false);
   });
+
+  it('save garde le départ choisi sur la carte, faux par défaut', async () => {
+    const user = await createUser('routes-fixed-start');
+    const authorId = toUserId(user.id);
+    const base = {
+      authorId,
+      name: undefined,
+      waypoints: [paris, lyon],
+      routingOptions: { avoidHighways: false, avoidTolls: false },
+      distanceMeters: undefined,
+      durationSeconds: undefined,
+    };
+
+    const byDefault = await service.save(base);
+    const fixed = await service.save({ ...base, fixedStart: true });
+
+    expect(byDefault.ok && fixed.ok).toBe(true);
+    if (!byDefault.ok || !fixed.ok) return;
+    expect(byDefault.value.fixedStart).toBe(false);
+    expect(fixed.value.fixedStart).toBe(true);
+
+    const list = await service.listForAuthor(authorId);
+    expect(list.map((route) => route.fixedStart).sort()).toEqual([false, true]);
+  });
 });

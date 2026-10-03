@@ -18,9 +18,16 @@ function toFallbackStop(point: GeoPointDto): AddressSuggestionDto {
 }
 
 // Le premier point d'un itinéraire enregistré était le départ au moment de
-// la sauvegarde — jamais réutilisé tel quel : relancer l'itinéraire part de
-// la position actuelle, pas de l'ancien point de départ, potentiellement
-// obsolète ou éloigné.
+// la sauvegarde. S'il n'était que la position de l'utilisateur à ce moment-là,
+// il n'est jamais réutilisé : relancer part de la position actuelle, pas de
+// l'ancien point, potentiellement obsolète ou éloigné.
 export function saveRoutesWaypointsToStops(waypoints: readonly GeoPointDto[]): readonly AddressSuggestionDto[] {
   return waypoints.slice(1).map(toFallbackStop);
+}
+
+// Départ choisi sur la carte (RouteDto.fixedStart) : lui, est conservé, et
+// l'itinéraire repart de ce point.
+export function savedRouteOrigin(waypoints: readonly GeoPointDto[]): AddressSuggestionDto | undefined {
+  const first = waypoints[0];
+  return first !== undefined ? toFallbackStop(first) : undefined;
 }
