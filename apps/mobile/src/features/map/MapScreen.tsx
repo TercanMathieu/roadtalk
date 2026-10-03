@@ -97,6 +97,7 @@ const PLACEHOLDER_LABEL_DECIMALS = 4;
 
 const MAP_MODE_UNAVAILABLE_MESSAGE = 'Mode 3D bientôt disponible.';
 const ROUTE_SAVED_MESSAGE = 'Itinéraire enregistré.';
+const RIDE_SAVED_MESSAGE = 'Balade enregistrée dans ton historique.';
 const ROUTE_SAVE_FAILED_MESSAGE = "L'enregistrement de l'itinéraire a échoué.";
 // Hauteur de la barre de recherche (bar.minHeight) : la ligne de puces
 // (RouteStatusChips) se positionne juste en dessous, sans dépendre d'une
@@ -993,7 +994,11 @@ export function MapScreen(): React.JSX.Element {
           rideId={rideSummary.rideId}
           summary={rideSummary.summary}
           points={rideSummary.points}
-          onSaved={discardJournal}
+          onSaved={() => {
+            discardJournal();
+            setRideSummary(undefined);
+            snackbar.show(RIDE_SAVED_MESSAGE);
+          }}
           onClose={() => {
             // Fermer le résumé sans sauvegarder est un choix : la balade
             // n'est plus proposée à la récupération.
